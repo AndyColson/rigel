@@ -1,5 +1,9 @@
 #!/usr/bin/bash
 
+https://github.com/liberfa/erfa
+https://github.com/Starlink/pal
+
+
 # one time: curl -L https://cpanmin.us | perl - --sudo App::cpanminus
 /usr/local/bin/cpanm  --skip-installed \
 	File::Temp  \
@@ -16,6 +20,8 @@
 	Text::Xslate \
 	HTTP::XSCookies \
 	Text::CSV_XS \
+	Astro::PAL \
+	Astro::Coords
 
 # XSCookies requires Date::Parse
 

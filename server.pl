@@ -11,9 +11,11 @@ use FindBin qw($Bin);
 use Cwd 'abs_path';
 use Data::Dumper;
 use HTTP::XSCookies qw/bake_cookie crush_cookie/;
+use Text::CSV_XS;
+use Astro::Coords;
 use lib $Bin;
 use Rigel::Config;
-use Text::CSV_XS;
+use Rigel::LX200;
 
 my $domStatus;
 
@@ -31,7 +33,9 @@ exit 0;
 
 sub main
 {
-	my($httpd, $ra, $dec, $focus );
+	my($httpd, $ra, $dec, $focus, $lx);
+
+	$lx = new Rigel::LX200( recv => \&lxCommand );
 
 	print "connting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
 
@@ -278,3 +282,33 @@ sub showTemplate($tt)
 	];
 }
 
+sub telescopeStatus
+{
+=pod
+
+	if (mip->haveenc)
+	{
+		double draw;
+		int raw;
+
+		/* just change by half-step if encoder changed by 1 */
+		raw = csi_rix (MIPSFD(mip), "=epos;");
+		draw = abs(raw - mip->raw)==1 ? (raw + mip->raw)/2.0 : raw;
+		mip->raw = raw;
+		mip->cpos = (2*PI) * mip->esign * draw / mip->estep;
+
+	}
+	else
+	{
+		mip->raw = csi_rix (MIPSFD(mip), "=mpos;");
+		mip->cpos = (2*PI) * mip->sign * mip->raw / mip->step;
+	}
+=cut
+}
+
+
+sub lxCommand($coords)
+{
+	print "Main lxCommand\n";
+	print $coords->status, "\n";
+}
