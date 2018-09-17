@@ -72,8 +72,6 @@ static size_t writeI (int fd, const void *buf, size_t n);
 static void openTTY(void);
 static void announce(void);
 static void mainLoop(void);
-static void initPty(void);
-static void openPty (char pty[], int addr, int baud);
 static void reopenPty (int cfd);
 static void advanceToken (void);
 static void checkClients(void);
@@ -259,97 +257,7 @@ initCfg(void)
     read1CfgEntry (1, cfg, "PORT", CFG_INT, &port, 0);
 }
 
-/* read the config file and set up any serial entries.
- * must be done after ttyfd and listenfd are set so CFD<->NA macros work.
- */
-static void
-initPty(void)
-{
-    int addr;
 
-    if (verbose)
-        daemonLog ("Scanning %s for SERn entries\n", cfg);
-
-    /* read the optional SERn entries */
-    for (addr = 0; addr <= MAXNA; addr++)
-    {
-        char name[32], value[32];
-        sprintf (name, "SER%d", addr);
-        if (!read1CfgEntry (0, cfg, name, CFG_STR, value, sizeof(value)))
-        {
-            char pty[64];
-            int baud;
-
-            if (sscanf (value, "%s %d", pty, &baud) != 2)
-            {
-                daemonLog ("%s: Bad entry %s=%s", cfg, name, value);
-                exit (1);
-            }
-
-            openPty (pty, addr, baud);
-        }
-    }
-}
-
-/* open pty[], assign to serial port on toaddr @ baud, add the fd as a new
- * "client" for which we listen.
- * exit(1) if trouble.
- */
-static void
-openPty (char pty[], int toaddr, int baud)
-{
-    CInfo *cip;
-    int cfd = -1;
-    int i;
-
-    /* convert ttyMN to ptyMN and open */
-    pty[strlen(pty)-5] = 'p';
-
-    /* try open several times.. other side might be slow to shut down if
-     * we have been rebooted
-     */
-    for (i = 0; i < 5; i++)
-    {
-        cfd = open (pty, O_RDWR);
-        if (cfd < 0)
-            sleep (1);
-        else
-            break;
-    }
-    if (cfd < 0)
-    {
-        daemonLog ("%s: %s\n", pty, strerror(errno));
-        exit (1);
-    }
-
-    /* tried tcget/setattr to turn off stuff like echo.
-     * setattr with c_cflag = 0 flat fails; c_i/l/oflag don't fail but
-     * don't help the echo problem either.
-     */
-
-    /* add cfd as a "client" */
-    cip = newCInfo();
-    if (!cip)
-    {
-        daemonLog ("Out of host addresses for pty.. sorry\n");
-        exit(1);
-    }
-
-    FD_SET (cfd, &clset);
-    if (cfd > maxclset)
-        maxclset = cfd;
-    cip->inuse = 1;
-    cip->cfdset = 1;
-    cip->cfd = cfd;
-    cip->toaddr = toaddr;
-    cip->why = FOR_SERIAL;
-    rseq[toaddr][CFD2HA(cfd)] = -1;
-    livenodes[toaddr] = 1;  /* insure it gets a token */
-    if (sendBaud (cfd, baud) < 0)
-        exit(1);
-    daemonLog("Connected host %d node %d FOR_SERIAL to %s @ %d baud\n",
-              CFD2HA(cfd), toaddr, pty, baud);
-}
 
 /* pty on cfd was closed by client.. reopen and reuse cfd.
  * exit (1) if trouble.

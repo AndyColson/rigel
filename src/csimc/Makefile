@@ -3,31 +3,23 @@
 # ../libmisc/csimc.h ../libmisc/configfile.h el.h mc.h
 
 include ../common.mk
+# -I../libwcs -I../libfs -I../libastro -I../libfits
+CFLAGS :=  -I../libmisc $(CFLAGS)
+#LDFLAGS=  -L$(inst_dir)
+LIBS = -lm -lsqlite3
 
-CFLAGS := -I../libwcs -I../libfs -I../libastro -I../libfits -I../libmisc $(CFLAGS)
-LDFLAGS=  -L$(inst_dir)
-LIBS = -lmisc -lfits -lastro -lwcs -lfs -lm -lsqlite3
-
-src = $(wildcard *.c)
+src = $(wildcard *.c) ../libmisc/csimc.c ../libmisc/strops.c ../libmisc/configfile.c ../libmisc/telenv.c
 obj = $(src:.c=.o)
 dep = $(obj:.o=.d)
 
 .PHONY: all
-all: csimc csimcio
+all: csimc
 
 -include $(dep)
 
-csimc: csimc.o boot.o eintrio.o el.o
+csimc: csimc.o boot.o eintrio.o el.o ../libmisc/csimc.o  ../libmisc/strops.o ../libmisc/configfile.o ../libmisc/telenv.o
 	@echo top_dir = $(top_dir)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
-
-
-csimcio: csimcio.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
-
-
-eltest: el.o
-	$(CC) $(CFLAGS) -DTESTEL -o eltest el.c
 
 
 .PHONY: clean
@@ -36,4 +28,4 @@ clean:
 
 .PHONY: install
 install:
-	cp csimc csimcio $(inst_dir)
+	cp csimc $(inst_dir)

@@ -1,7 +1,6 @@
-# kernel module needs installed: fliusb-1.3.2
 
-
-SECTIONS = libastro libfits libmisc libfs libwcs csimc csimcd rund
+# libastro libfits libfs libwcs rund
+SECTIONS =  csimc csimcd
 
 .PHONY: $(SECTIONS) all clean install
 
