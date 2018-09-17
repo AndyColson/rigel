@@ -261,7 +261,8 @@ daemonCheck()
         char buf[256];
         int i;
 
-        sprintf (buf, "rund %s -i %d", dname, port);
+        //sprintf (buf, "rund %s -i %d", dname, port);
+		sprintf(buf, "%s/%s", getenv("TELHOME"), dname);
         if (system (buf) != 0)
         {
             fprintf (stderr, "Can not start %s\n", dname);
