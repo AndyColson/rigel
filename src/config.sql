@@ -10,13 +10,13 @@ insert into config(app, key, value) values ('home', 'DSTEP', '3608560');
 insert into config(app, key, value) values ('home', 'HSTEP', '4798121');
 
 
-HESTEP		12976128		! raw encoder counts/rev
-DESTEP		12976128		! raw encoder counts/rev
+-- HESTEP		12976128		! raw encoder counts/rev
+-- DESTEP		12976128		! raw encoder counts/rev
 
 -- "H" refers to the longitudinal axis, ie, ha or az.
 -- "D" refers to the latitudinal axis, ie, dec or alt.
 
 
-LADDR		0		! csimc addr for light control, else -1
-MAXFLINT        3               ! max flat light intensity. 0 for none.
-csi_w (lfd, "lights(%d);", i);
+-- LADDR		0		! csimc addr for light control, else -1
+-- MAXFLINT        3               ! max flat light intensity. 0 for none.
+-- csi_w (lfd, "lights(%d);", i);

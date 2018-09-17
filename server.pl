@@ -17,7 +17,16 @@ use lib $Bin;
 use Rigel::Config;
 use Rigel::LX200;
 
+use Inline CPP => config =>
+	libs => '-lqsiapi -lcfitsio -lftdi1 -lusb-1.0',
+	ccflags => '-std=c++11 -I/usr/include/libftdi1 -I/usr/include/libusb-1.0';
+
+use Inline 'CPP' => './Rigel/camera.cpp';
+
 my $domStatus;
+
+my $camera = new Camera();
+print $camera->getInfo(), "\n";
 
 my $cfg = Rigel::Config->new();
 $cfg->set('app', 'template', "$Bin/template");
@@ -37,7 +46,7 @@ sub main
 
 	$lx = new Rigel::LX200( recv => \&lxCommand );
 
-	print "connting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
+	print "connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
 
 	if (! -d "$Bin/cache")
 	{

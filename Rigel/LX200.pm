@@ -57,8 +57,6 @@ sub accept_connection {
 		on_error => sub { $self->do_disconnect ("Error: $!") },
 		on_read  => sub { $self->do_read( @_ ); }
 	);
-
-
 }
 
 sub do_read($self, $handle)
@@ -101,5 +99,4 @@ sub do_disconnect($self, $error=0)
 }
 
 1;
-
 

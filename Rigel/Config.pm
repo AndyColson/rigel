@@ -17,11 +17,9 @@ sub set($self, $app, $key, $value)
 {
 	if ($app eq 'app')
 	{
-		print "ITS set to $value\n";
 		$self->{app}->{$key} = $value;
 	}
 }
-
 
 sub get($self, $app, $key)
 {
