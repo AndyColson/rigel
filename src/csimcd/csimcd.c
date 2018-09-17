@@ -42,6 +42,7 @@
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <syslog.h>
 
 #include "telenv.h"
 #include "running.h"
@@ -197,6 +198,12 @@ main (int ac, char *av[])
         exit(0);
     }
 
+	if (daemon(0, 0) == -1)
+	{
+		printf("failed to daemonize\n");
+		exit(1);
+	}
+
     /* set log now to proper place */
     telOELog(me);
 
@@ -216,6 +223,7 @@ main (int ac, char *av[])
     initCInfo();
     //initPty();
 
+	syslog(LOG_INFO, "running");
     /* infinite service loop */
     atexit (onExit);
     while (1)

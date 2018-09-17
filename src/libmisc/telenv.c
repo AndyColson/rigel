@@ -9,6 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <syslog.h>
 
 #include "telenv.h"
 #include "strops.h"
@@ -97,34 +98,11 @@ telfixpath (char *newp, char *old)
 int
 telOELog(char *progname)
 {
-    char logpath[1024];
-    int ok = -1;
-    FILE *fp;
 
-    /* just the basic name */
-    progname = basenm(progname);
+	openlog("csimcd", LOG_PID, LOG_DAEMON);
+	syslog(LOG_INFO, "Program startup");
 
-    /* connect to proper log file -- leave unchanged if trouble */
-    getTELHOME();
-    sprintf (logpath, "%s/archive/logs/%s.log", telhome, progname);
-    if ((fp = fopen (logpath, "a")) != NULL)
-    {
-        /* can't trust freopen to fail gracefully */
-        fclose (fp);
-        freopen (logpath, "a", stdout);
-        freopen (logpath, "a", stderr);
-        setbuf (stdout, NULL);
-        setbuf (stderr, NULL);
-        ok = 0;
-    }
-    else
-    {
-        setbuf (stdout, NULL);
-        setbuf (stderr, NULL);
-        printf ("%s: %s\n", logpath, strerror(errno));
-    }
-
-    return (ok);
+    return 0;
 }
 
 /* return a pointer to a static string of the form YYYYMMDDHHMMSS
@@ -152,28 +130,11 @@ timestamp(time_t t)
 void
 daemonLog (char *fmt, ...)
 {
-    char buf[1024];
     va_list ap;
-    int l;
 
-    /* start with time stamp */
-    l = sprintf (buf, "%s: ", timestamp(time(NULL)));
-
-    /* format the message */
-    va_start (ap, fmt);
-    l += vsprintf (buf+l, fmt, ap);
+	va_start (ap, fmt);
+	vsyslog(LOG_INFO, fmt, ap);
     va_end (ap);
-
-    /* add \n if not already */
-    if (l > 0 && buf[l-1] != '\n')
-    {
-        buf[l++] = '\n';
-        buf[l] = '\0';
-    }
-
-    /* log to fp */
-    fputs (buf, stdout);
-    fflush (stdout);
 }
 
 static void
@@ -186,5 +147,3 @@ getTELHOME()
         telhome = telhome_def;
 }
 
-/* For RCS Only -- Do Not Edit */
-static char *rcsid[2] = {(char *)rcsid, "@(#) $RCSfile: telenv.c,v $ $Date: 2001/04/19 21:12:14 $ $Revision: 1.1.1.1 $ $Name:  $"};

@@ -2,6 +2,9 @@
 
 https://github.com/liberfa/erfa
 https://github.com/Starlink/pal
+sbo cfitsio, vips
+
+qsiapi
 
 
 # one time: curl -L https://cpanmin.us | perl - --sudo App::cpanminus

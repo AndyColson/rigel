@@ -3,8 +3,9 @@
 	login
 20%	csi (socket)
 20%	dome (usb)
-	camera (usb)
+20%	camera (usb)
 20%	httpd server
+50% lx200 compat
 	http client
 	makefiles
 	csi lights?
