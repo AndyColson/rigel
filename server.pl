@@ -138,12 +138,11 @@ sub webRequest($httpd, $req)
 	my $c = $req->headers->{cookie};
 	if ($c ) {
 		my $values = crush_cookie($c);
-		print 'cookie: ', Dumper($values), "\n";
+		#print 'cookie: ', Dumper($values), "\n";
 	}
 
 	if ($req->method eq 'POST')
 	{
-
 		my %v = $req->vars;
 		my $buf = "<html><body>name = " . $req->parm('name') . '<br> method = ' . $req->method
 			. '<br>path = ' . $req->url->path
@@ -152,6 +151,11 @@ sub webRequest($httpd, $req)
 		$req->respond ({ content => ['text/html', $buf]});
 		return;
 	}
+
+	my $path = $req->url->path;
+	if ($path eq '/left')
+	{
+		print "go left\n";
 
 	#if ($req->method eq 'GET')
 	{
@@ -165,16 +169,32 @@ sub webRequest($httpd, $req)
 			return;
 		}
 
-		if ( -e $file ){
-
-			my $buf = $tt->render($req->url->path);
+		if ( -e $file )
+		{
+			my($buf, $ctype);
+			if ($file =~ /\.css$/)
+			{
+				open(F, '<', $file);
+				local $/ = undef;
+				$buf = <F>;
+				close(F);
+				$ctype = 'text/css; charset=utf-8';
+			} elsif ($file =~ /\.js$/) {
+				open(F, '<', $file);
+				local $/ = undef;
+				$buf = <F>;
+				close(F);
+				$ctype = 'application/javascript; charset=utf-8';
+			} else {
+				$buf = $tt->render($req->url->path);
+			}
 			my $cookie = bake_cookie('baz', {
 					value   => 'Frodo',
 					expires => '+11h'
 			});
 			$req->respond([
 				200, 'ok',
-				{'Content-Type' => 'text/html; charset=utf-8',
+				{'Content-Type' => $ctype,
 				'Content-Length' => length($buf),
 				'Set-Cookie' => $cookie
 				},
