@@ -1,0 +1,20 @@
+stop:
+csi_w "mtvel=0;"
+wait for "=mvel;" to be zero
+
+move:
+csi_w "mtvel=%d;",  (mp)->sign * floor((mp)->step * (mp)->cvel / (2*PI) + 0.5)
+
+set pos
+csi_w "etpos=%.0f;", mip->esign * mip->estep * mip->dpos / (2*PI)
+
+Lights:
+csi_w (lfd, "lights(%d);", i);
+
+
+track:
+
+csi_w "clock=0;"
+telescoped.csi/tel.c
+
+
