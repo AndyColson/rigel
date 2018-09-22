@@ -55,7 +55,7 @@ sub main
 
 	print "loading csimc scripts...\n";
 	# -r reboot, -l load scripts.
-	# system('csimc -rl < /dev/null');
+	system($ENV{TELHOME}.'/csimc -rl < /dev/null');
 
 	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
 		my ($fh) = @_ or die "csimcd connect failed: $!";
@@ -156,6 +156,7 @@ sub webRequest($httpd, $req)
 	if ($path eq '/left')
 	{
 		print "go left\n";
+	}
 
 	#if ($req->method eq 'GET')
 	{

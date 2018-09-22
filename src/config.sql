@@ -9,9 +9,17 @@ insert into config(app, key, value) values ('csimc', 'INIT1', 'basic.cmc find.cm
 insert into config(app, key, value) values ('home', 'DSTEP', '3608560');
 insert into config(app, key, value) values ('home', 'HSTEP', '4798121');
 
+-- from home.cfg
+-- HSTEP        4798121
 
+-- from telescoped.cfg
 -- HESTEP		12976128		! raw encoder counts/rev
 -- DESTEP		12976128		! raw encoder counts/rev
+-- CGUIDEVEL    0.0016          ! coarse jogging velocity, rads/sec
+
+-- HAXIS		0
+-- DAXIS		1
+-- LADDR		0				! csimc addr of lights!
 
 -- "H" refers to the longitudinal axis, ie, ha or az.
 -- "D" refers to the latitudinal axis, ie, dec or alt.
@@ -20,3 +28,7 @@ insert into config(app, key, value) values ('home', 'HSTEP', '4798121');
 -- LADDR		0		! csimc addr for light control, else -1
 -- MAXFLINT        3               ! max flat light intensity. 0 for none.
 -- csi_w (lfd, "lights(%d);", i);
+
+-- deg * (pi/180) = rad
+-- rad * (180/pi) = deg
+

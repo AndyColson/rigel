@@ -4,7 +4,7 @@
 
 include ../common.mk
 # -I../libwcs -I../libfs -I../libastro -I../libfits
-CFLAGS :=  -I../libmisc $(CFLAGS)
+CFLAGS := -D_DEFAULT_SOURCE  -I../libmisc $(CFLAGS)
 #LDFLAGS=  -L$(inst_dir)
 LIBS = -lm -lsqlite3
 
