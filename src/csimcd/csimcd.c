@@ -226,7 +226,6 @@ main (int ac, char *av[])
     initCInfo();
     //initPty();
 
-	syslog(LOG_INFO, "running");
     /* infinite service loop */
     atexit (onExit);
     while (1)

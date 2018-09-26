@@ -60,7 +60,7 @@ int
 csimcd_saccept (int serv_fd)
 {
     struct sockaddr_in cli_socket;
-    size_t cli_len;
+    socklen_t cli_len;
 	int cli_fd;
 
     /* get a private connection to new client */

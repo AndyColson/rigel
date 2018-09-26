@@ -97,7 +97,7 @@ sub main
 	my $dome;
 	eval {
 		$dome = AnyEvent::SerialPort->new(
-			serial_port => '/dev/ttyUSB0',   #defaults to 9600, 8n1
+			serial_port => '/dev/ttyUSB1',   #defaults to 9600, 8n1
 			on_read => \&readDomeSerial,
 			on_error => sub {
 				my ($hdl, $fatal, $msg) = @_;
@@ -125,10 +125,8 @@ sub main
 			print "timer fired\n";
 			# $camera->takePicture();
 			# print "pict taken\n";
-	  }
+		}
 	);
-
-
 
 	$httpd->run();
 }
