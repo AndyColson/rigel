@@ -123,6 +123,8 @@ sub main
 		#interval => 1,
 		cb => sub {
 			print "timer fired\n";
+			# $camera->takePicture();
+			# print "pict taken\n";
 	  }
 	);
 

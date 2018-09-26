@@ -18,3 +18,11 @@ csi_w "clock=0;"
 telescoped.csi/tel.c
 
 
+
+Camera filters:
+slot1 = clear
+slot2 = Red
+slot3 = Green
+slot4 = Blue
+slot5 = empty
+

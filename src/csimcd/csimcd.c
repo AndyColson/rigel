@@ -187,6 +187,9 @@ main (int ac, char *av[])
             }
     }
 
+	verbose = MAXV;
+
+
     /* shouldn't be any more args */
     if (ac > 0)
         usage(me);
