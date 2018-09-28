@@ -12,6 +12,7 @@ use Cwd 'abs_path';
 use Data::Dumper;
 use HTTP::XSCookies qw/bake_cookie crush_cookie/;
 use Text::CSV_XS;
+use JSON::XS;
 use Astro::Coords;
 use lib $Bin;
 use Rigel::Config;
@@ -55,7 +56,7 @@ sub main
 
 	print "loading csimc scripts...\n";
 	# -r reboot, -l load scripts.
-	system($ENV{TELHOME}.'/csimc -rl < /dev/null');
+	#system($ENV{TELHOME}.'/csimc -rl < /dev/null');
 
 	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
 		my ($fh) = @_ or die "csimcd connect failed: $!";
@@ -82,8 +83,6 @@ sub main
 	};
 
 
-
-	print "init http\n";
 	$httpd = AnyEvent::HTTPD->new(
 		host => '::',
 		port => 9090,
@@ -131,7 +130,22 @@ sub main
 	$httpd->run();
 }
 
+sub getStatus($req)
+{
+	my $data = {
+		status => 'lefting'
+	};
 
+	my $buf = encode_json($data);
+	$req->respond([
+		200, 'ok',
+		{'Content-Type' => 'application/javascript; charset=utf-8',
+		'Content-Length' => length($buf)
+		},
+		$buf
+	]);
+
+}
 sub webRequest($httpd, $req)
 {
 	# print Dumper($req->headers);
@@ -156,6 +170,11 @@ sub webRequest($httpd, $req)
 	if ($path eq '/left')
 	{
 		print "go left\n";
+		return sendJson($req, {});
+	}
+	if ($path eq '/status')
+	{
+		return getStatus($req);
 	}
 
 	#if ($req->method eq 'GET')
@@ -188,13 +207,14 @@ sub webRequest($httpd, $req)
 				$ctype = 'application/javascript; charset=utf-8';
 			} else {
 				$buf = $tt->render($req->url->path);
+				$ctype = 'text/html; charset=utf-8';
 			}
 			my $cookie = bake_cookie('baz', {
 					value   => 'Frodo',
 					expires => '+11h'
 			});
 			$req->respond([
-				200, 'ok',
+				200, '',
 				{'Content-Type' => $ctype,
 				'Content-Length' => length($buf),
 				'Set-Cookie' => $cookie
@@ -279,22 +299,18 @@ sub readDomeSerial($handle)
 }
 
 
-sub sendJson
+sub sendJson($req, $data, $cookie=0)
 {
-	my ($j, $buf, $h, $cookie);
-
-	($j, $cookie) = @_;
-
-	$buf = encode_json($j);
-	$h = [
-		'Content-Type' => 'application/json; charset=utf-8',
+	my $buf = encode_json($data);
+	my $headers = {
+		'Content-Type' => 'application/javascript; charset=utf-8',
 		'Content-Length' => length($buf)
-	];
+	};
 	if ($cookie)
 	{
-		#		push(@$h, 'Set-Cookie' => bake_cookie(SESSKEY, $cookie));
+		$headers->{'Set-Cookie'} = bake_cookie('baz', $cookie);
 	}
-	return [ 200, $h, [$buf] ];
+	$req->respond([200, '', $headers, $buf]);
 }
 
 sub showTemplate($tt)
