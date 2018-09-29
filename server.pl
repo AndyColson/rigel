@@ -8,7 +8,6 @@ use AnyEvent::HTTPD;
 use AnyEvent::Socket;
 use Text::Xslate qw(mark_raw);
 use FindBin qw($Bin);
-use Cwd 'abs_path';
 use Data::Dumper;
 use HTTP::XSCookies qw/bake_cookie crush_cookie/;
 use Text::CSV_XS;
@@ -80,6 +79,42 @@ sub main
 			}
 		);
 
+		$dec = new AnyEvent::Handle(
+			fh     => $fh,
+			on_error => sub {
+				print "csimcd socket error: $_[2]\n";
+				$_[0]->destroy;
+			},
+			on_eof => sub {
+				$dec->destroy;
+			}
+		);
+		# addr=0, why=shell=0, zero
+		$dec->push_write( pack('ccc', 0, 0, 0) );
+		$dec->push_read( chunk => 1, sub($handle, $data) {
+				my $result = unpack('C', $data);
+				print "DEC connect, result: $result\n";
+			}
+		);
+
+		$focus = new AnyEvent::Handle(
+			fh     => $fh,
+			on_error => sub {
+				print "csimcd socket error: $_[2]\n";
+				$_[0]->destroy;
+			},
+			on_eof => sub {
+				$focus->destroy;
+			}
+		);
+		# addr=0, why=shell=0, zero
+		$focus->push_write( pack('ccc', 0, 0, 0) );
+		$focus->push_read( chunk => 1, sub($handle, $data) {
+				my $result = unpack('C', $data);
+				print "FOCUS connect, result: $result\n";
+			}
+		);
+
 	};
 
 
@@ -133,19 +168,37 @@ sub main
 sub getStatus($req)
 {
 	my $data = {
-		status => 'lefting'
+		status => 'telescope stuff'
 	};
 
-	my $buf = encode_json($data);
-	$req->respond([
-		200, 'ok',
-		{'Content-Type' => 'application/javascript; charset=utf-8',
-		'Content-Length' => length($buf)
-		},
-		$buf
-	]);
+	my $wait = AnyEvent->condvar;
 
+	$ra->push_write('=epos;');
+	$wait->begin;
+
+	$dec->push_write('=epos;');
+	$wait->begin;
+
+	$ra->push_read( line => sub($handle, $line) {
+			print "get RA: [$line]\n";
+			$data->{ra} = $line;
+			$wait->end;
+		}
+	);
+	$dec->push_read( line => sub($handle, $line) {
+			print "get DEC: [$line]\n";
+			$data->{dec} = $line;
+			$wait->end;
+		}
+	);
+
+	# wait for both $ra and $dec to finish
+	$wait->recv;
+
+	# cpos = (2*PI) * mip->esign * draw / mip->estep;
+	return sendJson($req, $data);
 }
+
 sub webRequest($httpd, $req)
 {
 	# print Dumper($req->headers);
@@ -170,6 +223,20 @@ sub webRequest($httpd, $req)
 	if ($path eq '/left')
 	{
 		print "go left\n";
+		$ra->push_write('etvel=-15000;');
+
+		return sendJson($req, {});
+	}
+	if ($path eq '/right')
+	{
+		print "go right\n";
+		$ra->push_write('etvel=15000;');
+		return sendJson($req, {});
+	}
+	if ($path eq '/stop')
+	{
+		print "Stop\n";
+		$ra->push_write('stop()');
 		return sendJson($req, {});
 	}
 	if ($path eq '/status')
@@ -177,52 +244,53 @@ sub webRequest($httpd, $req)
 		return getStatus($req);
 	}
 
-	#if ($req->method eq 'GET')
-	{
-		my $t = $cfg->get('app', 'template');
-		my $x = $t . $req->url->path;
-		my $file = abs_path($x);
-		# print "TMP: $x\nNew: $file\n";
-		if ($file !~ /^$t/)
-		{
-			$req->respond([404, 'not found', { 'Content-Type' => 'text/html' }, 'Sorry, file not found']);
-			return;
-		}
+	my $t = $cfg->get('app', 'template');
+	if ($path eq '/') {
+		$path = '/index.html';
+	}
 
-		if ( -e $file )
+	my $file = $t . $path;
+
+	print "file: $file\npath: $path\n";
+
+	if ( -e $file )
+	{
+		my($buf, $ctype);
+		if ($file =~ /\.css$/)
 		{
-			my($buf, $ctype);
-			if ($file =~ /\.css$/)
-			{
-				open(F, '<', $file);
-				local $/ = undef;
-				$buf = <F>;
-				close(F);
-				$ctype = 'text/css; charset=utf-8';
-			} elsif ($file =~ /\.js$/) {
-				open(F, '<', $file);
-				local $/ = undef;
-				$buf = <F>;
-				close(F);
-				$ctype = 'application/javascript; charset=utf-8';
-			} else {
-				$buf = $tt->render($req->url->path);
-				$ctype = 'text/html; charset=utf-8';
-			}
-			my $cookie = bake_cookie('baz', {
-					value   => 'Frodo',
-					expires => '+11h'
-			});
-			$req->respond([
-				200, '',
-				{'Content-Type' => $ctype,
-				'Content-Length' => length($buf),
-				'Set-Cookie' => $cookie
-				},
-				$buf
-			]);
-			return;
+			open(F, '<', $file);
+			local $/ = undef;
+			$buf = <F>;
+			close(F);
+			$ctype = 'text/css; charset=utf-8';
+		} elsif ($file =~ /\.js$/) {
+			open(F, '<', $file);
+			local $/ = undef;
+			$buf = <F>;
+			close(F);
+			$ctype = 'application/javascript; charset=utf-8';
+		} else {
+			$buf = $tt->render($path);
+			$ctype = 'text/html; charset=utf-8';
 		}
+		my $cookie = bake_cookie('baz', {
+				value   => 'Frodo',
+				expires => '+11h'
+		});
+		$req->respond([
+			200, '',
+			{'Content-Type' => $ctype,
+			'Content-Length' => length($buf),
+			'Set-Cookie' => $cookie
+			},
+			$buf
+		]);
+		return;
+	}
+	else
+	{
+		$req->respond([404, '', { 'Content-Type' => 'text/html' }, 'Sorry, file not found']);
+		return;
 	}
 }
 
@@ -303,7 +371,7 @@ sub sendJson($req, $data, $cookie=0)
 {
 	my $buf = encode_json($data);
 	my $headers = {
-		'Content-Type' => 'application/javascript; charset=utf-8',
+		'Content-Type' => 'application/json; charset=utf-8',
 		'Content-Length' => length($buf)
 	};
 	if ($cookie)
@@ -313,20 +381,6 @@ sub sendJson($req, $data, $cookie=0)
 	$req->respond([200, '', $headers, $buf]);
 }
 
-sub showTemplate($tt)
-{
-	my($file, $vars) = @_;
-	#warn("showTemplate $file");
-
-	my $buf;
-	$buf = $tt->render($file, $vars);
-	return [
-		200,
-		['Content-Type' => 'text/html; charset=utf-8',
-		'Content-Length' => length($buf)],
-		[$buf]
-	];
-}
 
 sub telescopeStatus
 {

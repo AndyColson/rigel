@@ -187,7 +187,7 @@ main (int ac, char *av[])
             }
     }
 
-	verbose = MAXV;
+	// verbose = MAXV;
 
 
     /* shouldn't be any more args */
