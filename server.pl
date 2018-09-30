@@ -23,39 +23,37 @@ use Inline CPP => config =>
 
 use Inline 'CPP' => './Rigel/camera.cpp';
 
-my $domStatus;
+my ($domStatus, $camera, $cfg);
+my ($httpd, $ra, $dec, $focus, $lx, $dome);
 
-my $camera = new Camera();
+$camera = new Camera();
 print $camera->getInfo(), "\n";
 
-my $cfg = Rigel::Config->new();
+$cfg = Rigel::Config->new();
 $cfg->set('app', 'template', "$Bin/template");
 
+if (! -d "$Bin/cache")
+{
+	mkdir("$Bin/cache") or die;
+}
 my $tt = Text::Xslate->new(
 	path => $cfg->get('app', 'template'),
 	cache_dir => "$Bin/cache",
 	syntax => 'Metakolon'
 );
 
+
 main();
 exit 0;
 
 sub main
 {
-	my($httpd, $ra, $dec, $focus, $lx);
-
 	$lx = new Rigel::LX200( recv => \&lxCommand );
 
 	print "connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
-
-	if (! -d "$Bin/cache")
-	{
-		mkdir("$Bin/cache") or die;
-	}
-
 	print "loading csimc scripts...\n";
 	# -r reboot, -l load scripts.
-	#system($ENV{TELHOME}.'/csimc -rl < /dev/null');
+	system($ENV{TELHOME}.'/csimc -rl < /dev/null');
 
 	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
 		my ($fh) = @_ or die "csimcd connect failed: $!";
@@ -75,7 +73,7 @@ sub main
 		$ra->push_write( pack('ccc', 0, 0, 0) );
 		$ra->push_read( chunk => 1, sub($handle, $data) {
 				my $result = unpack('C', $data);
-				print "RA connect, result: $result\n";
+				print "RA connect, handle: $result\n";
 			}
 		);
 
@@ -89,11 +87,11 @@ sub main
 				$dec->destroy;
 			}
 		);
-		# addr=0, why=shell=0, zero
-		$dec->push_write( pack('ccc', 0, 0, 0) );
+		# addr=1, why=shell=0, zero
+		$dec->push_write( pack('ccc', 1, 0, 0) );
 		$dec->push_read( chunk => 1, sub($handle, $data) {
 				my $result = unpack('C', $data);
-				print "DEC connect, result: $result\n";
+				print "DEC connect, handle: $result\n";
 			}
 		);
 
@@ -107,16 +105,14 @@ sub main
 				$focus->destroy;
 			}
 		);
-		# addr=0, why=shell=0, zero
-		$focus->push_write( pack('ccc', 0, 0, 0) );
+		# addr=2, why=shell=0, zero
+		$focus->push_write( pack('ccc', 2, 0, 0) );
 		$focus->push_read( chunk => 1, sub($handle, $data) {
 				my $result = unpack('C', $data);
-				print "FOCUS connect, result: $result\n";
+				print "FOCUS connect, handle: $result\n";
 			}
 		);
-
 	};
-
 
 	$httpd = AnyEvent::HTTPD->new(
 		host => '::',
@@ -128,24 +124,27 @@ sub main
 	);
 
 	$domStatus = 'Connecting...';
-	my $dome;
-	eval {
-		$dome = AnyEvent::SerialPort->new(
-			serial_port => '/dev/ttyUSB1',   #defaults to 9600, 8n1
-			on_read => \&readDomeSerial,
-			on_error => sub {
-				my ($hdl, $fatal, $msg) = @_;
-				print "serial error: $msg\n";
-				$hdl->destroy;
-			}
-		);
-	};
-	if ($@) {
-		print "Connect to dome failed\n";
-		print $@;
-		$domStatus = $@;
-		$dome = undef;
-	};
+	$dome = 0;
+	if (-e '/dev/ttyUSB1')
+	{
+		eval {
+			$dome = AnyEvent::SerialPort->new(
+				serial_port => '/dev/ttyUSB1',   #defaults to 9600, 8n1
+				on_read => \&readDomeSerial,
+				on_error => sub {
+					my ($hdl, $fatal, $msg) = @_;
+					print "serial error: $msg\n";
+					$hdl->destroy;
+				}
+			);
+		};
+		if ($@) {
+			print "Connect to dome failed\n";
+			print $@;
+			$domStatus = $@;
+			$dome = 0;
+		};
+	}
 
 	if ($dome) {
 		#get us a status update
@@ -165,6 +164,7 @@ sub main
 	$httpd->run();
 }
 
+
 sub getStatus($req)
 {
 	my $data = {
@@ -173,30 +173,34 @@ sub getStatus($req)
 
 	my $wait = AnyEvent->condvar;
 
+	$wait->begin(sub
+		{
+			# cpos = (2*PI) * mip->esign * draw / mip->estep;
+			return sendJson($req, $data);
+		}
+	);
+
 	$ra->push_write('=epos;');
 	$wait->begin;
 
 	$dec->push_write('=epos;');
 	$wait->begin;
 
-	$ra->push_read( line => sub($handle, $line) {
+	$ra->push_read( line => sub {
+			my($handle, $line) = @_;
 			print "get RA: [$line]\n";
 			$data->{ra} = $line;
 			$wait->end;
 		}
 	);
-	$dec->push_read( line => sub($handle, $line) {
+	$dec->push_read( line => sub {
+			my($handle, $line) = @_;
 			print "get DEC: [$line]\n";
 			$data->{dec} = $line;
 			$wait->end;
 		}
 	);
-
-	# wait for both $ra and $dec to finish
-	$wait->recv;
-
-	# cpos = (2*PI) * mip->esign * draw / mip->estep;
-	return sendJson($req, $data);
+	$wait->end;
 }
 
 sub webRequest($httpd, $req)
@@ -236,7 +240,7 @@ sub webRequest($httpd, $req)
 	if ($path eq '/stop')
 	{
 		print "Stop\n";
-		$ra->push_write('stop()');
+		$ra->push_write('stop();');
 		return sendJson($req, {});
 	}
 	if ($path eq '/status')
