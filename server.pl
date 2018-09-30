@@ -53,12 +53,10 @@ sub main
 	print "connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
 	print "loading csimc scripts...\n";
 	# -r reboot, -l load scripts.
-	system($ENV{TELHOME}.'/csimc -rl < /dev/null');
+	#system($ENV{TELHOME}.'/csimc -rl < /dev/null');
 
 	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
 		my ($fh) = @_ or die "csimcd connect failed: $!";
-
-		print "csimcd connected\n";
 		$ra = new AnyEvent::Handle(
 			fh     => $fh,
 			on_error => sub {
@@ -76,7 +74,10 @@ sub main
 				print "RA connect, handle: $result\n";
 			}
 		);
+	};
 
+	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
+		my ($fh) = @_ or die "csimcd connect failed: $!";
 		$dec = new AnyEvent::Handle(
 			fh     => $fh,
 			on_error => sub {
@@ -94,7 +95,10 @@ sub main
 				print "DEC connect, handle: $result\n";
 			}
 		);
+	};
 
+	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
+		my ($fh) = @_ or die "csimcd connect failed: $!";
 		$focus = new AnyEvent::Handle(
 			fh     => $fh,
 			on_error => sub {

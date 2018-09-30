@@ -1,5 +1,8 @@
 #include "qsiapi.h"
+#include "QSIError.h"
 #include <fitsio.h>
+#include <tiffio.h>
+void AdjustImage(unsigned short * buffer, int cols, int rows, unsigned char * out);
 
 class Camera {
 public:
@@ -12,6 +15,106 @@ private:
 	std::string info;
 
 };
+
+int WriteTIFF(unsigned short * buffer, int cols, int rows, char * filename)
+{
+	TIFF *image;
+	unsigned char out[cols*rows];
+
+	AdjustImage(buffer, cols, rows, out);
+
+	// Open the TIFF file
+	if((image = TIFFOpen(filename, "w")) == NULL)
+	{
+		printf("Could not open %s for writing\n", filename);
+		exit(1);
+	}
+
+	// We need to set some values for basic tags before we can add any data
+	TIFFSetField(image, TIFFTAG_IMAGEWIDTH, cols);
+	TIFFSetField(image, TIFFTAG_IMAGELENGTH, rows);
+	TIFFSetField(image, TIFFTAG_BITSPERSAMPLE, 8);
+	TIFFSetField(image, TIFFTAG_SAMPLESPERPIXEL, 1);
+	TIFFSetField(image, TIFFTAG_ROWSPERSTRIP, 1);
+
+	TIFFSetField(image, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+	TIFFSetField(image, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+	TIFFSetField(image, TIFFTAG_FILLORDER, FILLORDER_LSB2MSB);
+	TIFFSetField(image, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+
+	TIFFSetField(image, TIFFTAG_XRESOLUTION, 150.0);
+	TIFFSetField(image, TIFFTAG_YRESOLUTION, 150.0);
+	TIFFSetField(image, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
+
+	// Write the information to the file
+	for (int y = 0; y < rows; y++)
+	{
+		TIFFWriteScanline(image, &out[cols*y], y);
+	}
+
+	// Close the file
+	TIFFClose(image);
+	return 0;
+}
+
+void AdjustImage(unsigned short * buffer, int x, int y, unsigned char * out)
+{
+	//
+	// adjust the image to better display and
+	// covert to a byte array
+	//
+	// Compute the average pixel value and the standard deviation
+	double avg = 0;
+	double total = 0;
+	double deltaSquared = 0;
+	double std = 0;
+
+	for (int j = 0; j < y; j++)
+		for (int i = 0; i < x; i++)
+			total += (double)buffer[((j * x) + i)];
+
+	avg = total / (x * y);
+
+	for (int j = 0; j < y; j++)
+		for (int i = 0; i < x; i++)
+			deltaSquared += pow((avg - buffer[((j * x) + i)]), 2);
+
+	std = sqrt(deltaSquared / ((x * y) - 1));
+
+	// re-scale scale pixels to three standard deviations for display
+	double minVal = avg - std*3;
+	if (minVal < 0) minVal = 0;
+	double maxVal = avg + std*3;
+	if (maxVal > 65535) maxVal = 65535;
+	double range = maxVal - minVal;
+	if (range == 0)
+		range = 1;
+	double spread = 65535 / range;
+	//
+	// Copy image to bitmap for display and scale during the copy
+	//
+	int pix;
+	double pl;
+	unsigned char level;
+
+	for (int j = 0; j < y; j++)
+	{
+		for (int i = 0; i < x; i++)
+		{
+			pix = ((j * x) + i);
+			pl = (double)buffer[pix];
+			// Spread out pixel values for better veiwing
+			pl = (pl - minVal) * spread;
+			// Scale pixel value
+			pl = (pl*255)/65535;
+			if (pl > 255) pl = 255;
+			//
+			level = (unsigned char)pl;
+			out[pix] = level;
+		}
+	}
+	return;
+}
 
 int	WriteFITS(unsigned short *buffer, int cols, int rows, const char *filename)
 {
@@ -75,9 +178,8 @@ void Camera::takePicture()
 	}
 
 	bool imageReady = false;
-	// Start an exposure, 0 milliseconds long (bias frame), with shutter open
 	printf("starting exposure\n");
-	result = cam.StartExposure(5.000, true);
+	result = cam.StartExposure(0.25, true);
 	if (result != 0)
 	{
 		printf("StartExposure failed: %d\n", result);
@@ -108,6 +210,7 @@ void Camera::takePicture()
 	printf("saving\n");
 
 	WriteFITS(image, x, y, "/tmp/picture.fits");
+	WriteTIFF(image, x, y, "/tmp/picture.tiff");
 	//vips im_copy qsiimage0.tif junk.png
 
 	printf("free\n");
@@ -197,6 +300,15 @@ const char *Camera::getInfo()
 	if ( hasFilters)
 	{
 		info.append("Has filter wheel\n");
+		int x = cam.put_Position(0);
+		printf("set filter 0 = %d\n", x);
+		if (x != 0)
+		{
+			std::string x;
+			cam.get_LastError(x);
+			printf(x.c_str());
+			printf("\n");
+		}
 	}
 
 	bool hasShutter;

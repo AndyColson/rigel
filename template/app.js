@@ -1,4 +1,4 @@
-function goLeft(dir) {
+function go(dir) {
 	$.getJSON('/'+dir, function(data) {
 		setTimeout(getStatus, 2000);
 		console.log("setTimeout");
