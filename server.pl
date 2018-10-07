@@ -50,74 +50,7 @@ sub main
 {
 	$lx = new Rigel::LX200( recv => \&lxCommand );
 
-	print "connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
-	print "loading csimc scripts...\n";
-	# -r reboot, -l load scripts.
-	#system($ENV{TELHOME}.'/csimc -rl < /dev/null');
-
-	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
-		my ($fh) = @_ or die "csimcd connect failed: $!";
-		$ra = new AnyEvent::Handle(
-			fh     => $fh,
-			on_error => sub {
-				print "csimcd socket error: $_[2]\n";
-				$_[0]->destroy;
-			},
-			on_eof => sub {
-				$ra->destroy;
-			}
-		);
-		# addr=0, why=shell=0, zero
-		$ra->push_write( pack('ccc', 0, 0, 0) );
-		$ra->push_read( chunk => 1, sub($handle, $data) {
-				my $result = unpack('C', $data);
-				print "RA connect, handle: $result\n";
-			}
-		);
-	};
-
-	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
-		my ($fh) = @_ or die "csimcd connect failed: $!";
-		$dec = new AnyEvent::Handle(
-			fh     => $fh,
-			on_error => sub {
-				print "csimcd socket error: $_[2]\n";
-				$_[0]->destroy;
-			},
-			on_eof => sub {
-				$dec->destroy;
-			}
-		);
-		# addr=1, why=shell=0, zero
-		$dec->push_write( pack('ccc', 1, 0, 0) );
-		$dec->push_read( chunk => 1, sub($handle, $data) {
-				my $result = unpack('C', $data);
-				print "DEC connect, handle: $result\n";
-			}
-		);
-	};
-
-	tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
-		my ($fh) = @_ or die "csimcd connect failed: $!";
-		$focus = new AnyEvent::Handle(
-			fh     => $fh,
-			on_error => sub {
-				print "csimcd socket error: $_[2]\n";
-				$_[0]->destroy;
-			},
-			on_eof => sub {
-				$focus->destroy;
-			}
-		);
-		# addr=2, why=shell=0, zero
-		$focus->push_write( pack('ccc', 2, 0, 0) );
-		$focus->push_read( chunk => 1, sub($handle, $data) {
-				my $result = unpack('C', $data);
-				print "FOCUS connect, handle: $result\n";
-			}
-		);
-	};
-
+	# create our web server
 	$httpd = AnyEvent::HTTPD->new(
 		host => '::',
 		port => 9090,
@@ -127,13 +60,87 @@ sub main
 		request => \&webRequest
 	);
 
-	$domStatus = 'Connecting...';
-	$dome = 0;
-	if (-e '/dev/ttyUSB1')
+	my $tmp = $cfg->get('csimc', 'TTY');
+	# only start daemon if we auto detected it
+	if ($tmp)
 	{
+		print "connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
+		print "loading csimc scripts...\n";
+		# -r reboot, -l load scripts.
+		system($ENV{TELHOME}.'/csimc -rl < /dev/null');
+
+		tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
+			my ($fh) = @_ or die "csimcd connect failed: $!";
+			$ra = new AnyEvent::Handle(
+				fh     => $fh,
+				on_error => sub {
+					print "csimcd socket error: $_[2]\n";
+					$_[0]->destroy;
+				},
+				on_eof => sub {
+					$ra->destroy;
+				}
+			);
+			# addr=0, why=shell=0, zero
+			$ra->push_write( pack('ccc', 0, 0, 0) );
+			$ra->push_read( chunk => 1, sub($handle, $data) {
+					my $result = unpack('C', $data);
+					print "RA connect, handle: $result\n";
+				}
+			);
+		};
+
+		tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
+			my ($fh) = @_ or die "csimcd connect failed: $!";
+			$dec = new AnyEvent::Handle(
+				fh     => $fh,
+				on_error => sub {
+					print "csimcd socket error: $_[2]\n";
+					$_[0]->destroy;
+				},
+				on_eof => sub {
+					$dec->destroy;
+				}
+			);
+			# addr=1, why=shell=0, zero
+			$dec->push_write( pack('ccc', 1, 0, 0) );
+			$dec->push_read( chunk => 1, sub($handle, $data) {
+					my $result = unpack('C', $data);
+					print "DEC connect, handle: $result\n";
+				}
+			);
+		};
+
+		tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
+			my ($fh) = @_ or die "csimcd connect failed: $!";
+			$focus = new AnyEvent::Handle(
+				fh     => $fh,
+				on_error => sub {
+					print "csimcd socket error: $_[2]\n";
+					$_[0]->destroy;
+				},
+				on_eof => sub {
+					$focus->destroy;
+				}
+			);
+			# addr=2, why=shell=0, zero
+			$focus->push_write( pack('ccc', 2, 0, 0) );
+			$focus->push_read( chunk => 1, sub($handle, $data) {
+					my $result = unpack('C', $data);
+					print "FOCUS connect, handle: $result\n";
+				}
+			);
+		};
+	}
+
+	my $tmp = $cfg->get('dome', 'TTY');
+	if ($tmp)
+	{
+		$domStatus = 'Connecting...';
+		$dome = 0;
 		eval {
 			$dome = AnyEvent::SerialPort->new(
-				serial_port => '/dev/ttyUSB1',   #defaults to 9600, 8n1
+				serial_port => $tmp,   #defaults to 9600, 8n1
 				on_read => \&readDomeSerial,
 				on_error => sub {
 					my ($hdl, $fatal, $msg) = @_;
@@ -148,12 +155,16 @@ sub main
 			$domStatus = $@;
 			$dome = 0;
 		};
+
+		if ($dome) {
+			#get us a status update
+			$dome->push_write('GINF');
+		}
+	}
+	else {
+		$domStatus = 'Unplugged';
 	}
 
-	if ($dome) {
-		#get us a status update
-		$dome->push_write('GINF');
-	}
 	my $t;
 	$t = AnyEvent->timer (
 		after => 1,
@@ -165,7 +176,7 @@ sub main
 		}
 	);
 
-	$httpd->run();
+	$httpd->run();  #start event loop, never returns
 }
 
 

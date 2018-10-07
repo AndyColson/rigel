@@ -127,14 +127,10 @@ int	WriteFITS(unsigned short *buffer, int cols, int rows, const char *filename)
 		return -1;
 	}
 	long	naxes[2] = { cols, rows };
-	printf("create_img\n");
 	fits_create_img(fits, SHORT_IMG, 2, naxes, &status);
 	long	fpixel[2] = { 1, 1 };
-	printf("write_pix\n");
 	fits_write_pix(fits, TUSHORT, fpixel, cols * rows, buffer, &status);
-	printf("close_file\n");
 	fits_close_file(fits, &status);
-	printf("return\n");
 	return 0;
 }
 

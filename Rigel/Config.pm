@@ -3,6 +3,7 @@ package Rigel::Config;
 use common::sense;
 use feature 'signatures';
 use DBI;
+use Device::SerialPort;
 
 sub new($class)
 {
@@ -10,6 +11,7 @@ sub new($class)
 	bless($self, $class);
 	$self->{db} = DBI->connect("dbi:SQLite:dbname=$ENV{TELHOME}/config.sqlite");
 	$self->{app} = {};
+	$self->findPorts();
 	return $self;
 }
 
@@ -19,6 +21,9 @@ sub set($self, $app, $key, $value)
 	{
 		$self->{app}->{$key} = $value;
 	}
+	my $q = $self->{db}->prepare_cached('update config set value = $1 where app = $2 and key = $3');
+	$q->execute($value, $app, $key);
+	$q->finish;
 }
 
 sub get($self, $app, $key)
@@ -33,6 +38,113 @@ sub get($self, $app, $key)
 	($value) = $q->fetchrow_array;
 	$q->finish;
 	return $value;
+}
+
+sub findPorts($self)
+{
+	# blank it, assume auto detect works.
+	$self->set('csimc', 'TTY', '');
+	$self->set('dome', 'TTY', '');
+
+	my @list = glob('/dev/ttyUSB*');
+	for my $dev (@list)
+	{
+		my $found = 0;
+		print "Testing port: $dev\n";
+
+		my $tty = Device::SerialPort->new($dev);
+		if (! $tty)
+		{
+			print "Cant open: $!\n";
+			next;
+		}
+
+		# first try to detect csimc
+		$tty->baudrate(38400);
+		$tty->databits(8);
+		$tty->parity("none");
+		$tty->stopbits(1);
+		$tty->handshake("none");
+		if (! $tty->write_settings)
+		{
+			print "Error writing settings\n";
+			$tty = undef;
+			next;
+		}
+		$tty->purge_all;
+		$tty->lookclear();
+		$tty->read_char_time(0);     # don't wait for each character
+		$tty->read_const_time(500);  # 0.5 second per unfulfilled "read" call
+
+		# send the csimc ping
+		my $buf = pack('CCCCCC', 0x88, 0x00, 0x20, 0x16, 0x00, 0xbe);
+		open(F, '>', 'out');
+		print F $buf;
+		close(F);
+		my $x = $tty->write($buf);
+		#print "wrote $x bytes\n";
+
+		while (1)
+		{
+			my ($count, $buf) = $tty->read(1);
+			#print "read count $count\n";
+			if ($count == 1)
+			{
+				my $x = unpack('C', $buf);
+				#print "::$x\n";
+				if ($x == 0x88)
+				{
+					# it responded with the right packet type, so assume we found it
+					$self->set('csimc', 'TTY', $dev);
+					$found = 1;
+					print "Its the csimc\n";
+
+					# there are 5 more bytes to the packet
+					#my ($count, $buf) = $tty->read(5);
+					#if ($count == 5)
+					#{
+					#	my ($to, $from, $syn, $count, $crc) = unpack('C*', $buf);
+						#print "got a good packet\n";
+					#}
+					last;
+				}
+			}
+		}
+
+		if ($found)
+		{
+			$tty = undef;
+			next;
+		}
+
+		# Now try the dome
+		$tty->baudrate(9600);
+		$tty->databits(8);
+		$tty->parity("none");
+		$tty->stopbits(1);
+		$tty->handshake("none");
+		if (! $tty->write_settings)
+		{
+			print "Error re-writing settings\n";
+			$tty = undef;
+			next;
+		}
+		$tty->purge_all;
+		$tty->lookclear();
+		$tty->read_char_time(0);
+		$tty->read_const_time(1000);  #give it a second
+		$tty->write('GINF');
+		#expect V\d.*?\n\n
+		my ($count, $buf) = $tty->read(255);
+		if ($buf =~ /V\d+,/)
+		{
+			#close enough
+			$self->set('dome', 'TTY', $dev);
+			$tty = undef;
+			print "Its the dome\n";
+			next;
+		}
+	}
 }
 
 1;
