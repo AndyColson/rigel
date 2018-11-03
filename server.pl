@@ -15,7 +15,7 @@ use JSON::XS;
 use Astro::Coords;
 use lib $Bin;
 use Rigel::Config;
-use Rigel::LX200;
+use Rigel::Stellarium;
 
 use Inline CPP => config =>
 	libs => '-lqsiapi -lcfitsio -lftdi1 -lusb-1.0',
@@ -29,6 +29,8 @@ my ($httpd, $ra, $dec, $focus, $lx, $dome);
 $camera = new Camera();
 print $camera->getInfo(), "\n";
 
+# the config will open usb ports and autodetect
+# whats plugged in
 $cfg = Rigel::Config->new();
 $cfg->set('app', 'template', "$Bin/template");
 
@@ -48,7 +50,7 @@ exit 0;
 
 sub main
 {
-	$lx = new Rigel::LX200( recv => \&lxCommand );
+	$lx = new Rigel::Stellarium( recv => \&lxCommand );
 
 	# create our web server
 	$httpd = AnyEvent::HTTPD->new(
@@ -369,7 +371,7 @@ sub readDomeSerial($handle)
 				else {
 					$again = 0;
 					if (length($buf) > 200) {
-						#something very wrong this this status, kill it
+						#something very wrong with this status, kill it
 						$buf = '';
 					}
 				}

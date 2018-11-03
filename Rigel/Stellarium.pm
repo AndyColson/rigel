@@ -1,4 +1,5 @@
-package Rigel::LX200;
+# Listen for Stellarium movement commands via tcp
+package Rigel::Stellarium;
 
 use common::sense;
 use feature 'signatures';
