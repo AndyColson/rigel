@@ -1,6 +1,10 @@
 function go(dir) {
 	$.getJSON('/'+dir, function(data) {
-		setTimeout(getStatus, 2000);
+		if (dir === 'stop') {
+			clearInterval()
+		} else {
+			setInterval(getStatus, 2000);
+		}
 		console.log("setTimeout");
 	});
 }
