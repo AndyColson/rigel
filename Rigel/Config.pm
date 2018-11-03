@@ -83,31 +83,28 @@ sub findPorts($self)
 		close(F);
 		my $x = $tty->write($buf);
 		#print "wrote $x bytes\n";
-
-		while (1)
+		sleep(1);
+		my ($count, $buf) = $tty->read(1);
+		#print "read count $count\n";
+		if ($count == 1)
 		{
-			my ($count, $buf) = $tty->read(1);
-			#print "read count $count\n";
-			if ($count == 1)
+			my $x = unpack('C', $buf);
+			#print "::$x\n";
+			if ($x == 0x88)
 			{
-				my $x = unpack('C', $buf);
-				#print "::$x\n";
-				if ($x == 0x88)
-				{
-					# it responded with the right packet type, so assume we found it
-					$self->set('csimc', 'TTY', $dev);
-					$found = 1;
-					print "Its the csimc\n";
+				# it responded with the right packet type, so assume we found it
+				$self->set('csimc', 'TTY', $dev);
+				$found = 1;
+				print "Its the csimc\n";
 
-					# there are 5 more bytes to the packet
-					#my ($count, $buf) = $tty->read(5);
-					#if ($count == 5)
-					#{
-					#	my ($to, $from, $syn, $count, $crc) = unpack('C*', $buf);
-						#print "got a good packet\n";
-					#}
-					last;
-				}
+				# there are 5 more bytes to the packet
+				#my ($count, $buf) = $tty->read(5);
+				#if ($count == 5)
+				#{
+				#	my ($to, $from, $syn, $count, $crc) = unpack('C*', $buf);
+					#print "got a good packet\n";
+				#}
+				last;
 			}
 		}
 

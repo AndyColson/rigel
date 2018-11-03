@@ -26,3 +26,32 @@ slot3 = Green
 slot4 = Blue
 slot5 = empty
 
+ra limit: 14,156,229
+
+
+00> findlim(1);
+1 Seeking limit
+0 Found limit
+00> =epos;
+13,512,731
+00> findlim(-1);
+1 Seeking limit
+0 Found limit
+00> =epos;
+101,040
+
+00> findhom(1);
+2: backing up...
+1: fine tuning at 15000
+2: backing up...
+1: fine tuning at 1500
+2: backing up...
+1: fine tuning at 150
+2: backing up...
+1: fine tuning at 15
+2: backing up...
+1: fine tuning at 1
+0: done!
+00> =epos;
+0
+
