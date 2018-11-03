@@ -46,7 +46,7 @@
 
 #include "telenv.h"
 #include "running.h"
-#include "csimc.h"
+#include "csiutil.h"
 #include "configfile.h"
 #include "strops.h"
 

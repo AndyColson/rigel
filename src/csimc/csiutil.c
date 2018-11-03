@@ -16,7 +16,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "csimc.h"
+#include "csiutil.h"
 
 /*** low-level server connections, not for applications ***********************/
 

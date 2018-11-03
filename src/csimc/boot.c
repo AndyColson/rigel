@@ -10,7 +10,7 @@
 
 #include "strops.h"
 #include "telenv.h"
-#include "csimc.h"
+#include "csiutil.h"
 #include "configfile.h"
 
 #include "mc.h"

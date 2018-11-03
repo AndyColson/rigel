@@ -19,7 +19,7 @@
 #include "telenv.h"
 #include "running.h"
 
-static char lock_fmt[] = "comm/%s.pid"; /* format for file names */
+static char lock_fmt[] = "%s.pid"; /* format for file names */
 
 static void build_fn (char *name, char fn[]);
 static int read_lockpid (char *fn);
@@ -125,5 +125,3 @@ read_lockpid (char *fn)
     return (pid > 1 ? pid : -1);
 }
 
-/* For RCS Only -- Do Not Edit */
-static char *rcsid[2] = {(char *)rcsid, "@(#) $RCSfile: running.c,v $ $Date: 2001/04/19 21:12:14 $ $Revision: 1.1.1.1 $ $Name:  $"};

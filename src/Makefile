@@ -1,24 +1,13 @@
+.PHONY: all
 
-# libastro libfits libfs libwcs rund
-SECTIONS =  csimc csimcd
+# debug -g -ggdb
+CFLAGS = -O2 -ffast-math -fPIC -Wall -std=c11 -D_DEFAULT_SOURCE
 
-.PHONY: $(SECTIONS) all clean install
+all: ../bin/csimc ../bin/csimcd
 
-include common.mk
+../bin/csimc: csimc/csimc.o csimc/boot.o csimc/eintrio.o csimc/el.o csimc/csiutil.o  csimc/strops.o csimc/configfile.o csimc/telenv.o
+	$(CC) $(CFLAGS) -o $@ $^ -lm -lsqlite3
 
-all: $(SECTIONS)
-
-
-$(SECTIONS):
-	$(MAKE) -C $@
-
-clean:
-	@for dir in $(SECTIONS); do \
-	  $(MAKE) -C $$dir clean; \
-	done
-
-install:
-	@for dir in $(SECTIONS); do \
-	  $(MAKE) -C $$dir install; \
-	done
+../bin/csimcd: csimc/csimcd.o csimc/telenv.o csimc/strops.o csimc/configfile.o csimc/running.o csimc/csiutil.o
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE -D_XOPEN_SOURCE -o $@ $^ -lm -lsqlite3
 
