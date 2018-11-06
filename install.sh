@@ -24,7 +24,8 @@ qsiapi
 	HTTP::XSCookies \
 	Text::CSV_XS \
 	Astro::PAL \
-	Astro::Coords
+	Astro::Coords \
+	Udev::FFI
 
 # XSCookies requires Date::Parse
 
