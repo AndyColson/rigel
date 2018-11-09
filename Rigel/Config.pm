@@ -4,6 +4,7 @@ use common::sense;
 use feature 'signatures';
 use DBI;
 use Device::SerialPort;
+use Udev::FFI;
 
 sub new($class)
 {
@@ -12,6 +13,18 @@ sub new($class)
 	$self->{db} = DBI->connect("dbi:SQLite:dbname=$ENV{TELHOME}/config.sqlite");
 	$self->{app} = {};
 	$self->findPorts();
+
+
+	my $udev = Udev::FFI->new() or
+		die "Can't create Udev::FFI object: $@";
+
+	my $monitor = $udev->new_monitor() or
+		die "Can't create udev monitor: $@.\n";
+
+	$monitor->filter_by_subsystem_devtype('tty');
+	$monitor->start();
+	$self->{udev} = $udev;
+	$self->{monitor} = $monitor;
 	return $self;
 }
 
@@ -92,6 +105,7 @@ sub findPorts($self)
 			#print "::$x\n";
 			if ($x == 0x88)
 			{
+				$self->set('app', $dev, 'csimc');
 				# it responded with the right packet type, so assume we found it
 				$self->set('csimc', 'TTY', $dev);
 				$found = 1;
@@ -138,10 +152,40 @@ sub findPorts($self)
 			#close enough
 			$self->set('dome', 'TTY', $dev);
 			$tty = undef;
+			$self->set('app', $dev, 'dome');
 			print "Its the dome\n";
 			next;
 		}
 	}
+}
+
+sub checkMonitor($self)
+{
+    my $device = $self->{monitor}->poll(0.1);
+	return 0 unless ($device);
+
+	my $dev = $device->get_devnode();
+	if ($device->get_action() eq 'add')
+	{
+		$self->set('app', $dev, 'lx200');
+		$self->set('app', 'lx200', $dev);
+	} else {
+		$self->set('app', $dev, '');
+		$self->set('app', 'lx200', '');
+	}
+
+    print 'ACTION: '.$device->get_action()."\n";
+	#print 'DevPath '.$device->get_devpath()."\n";
+    print 'Subsystem '.$device->get_subsystem()."\n";
+	#print 'DevType '.$device->get_devtype()."\n";
+	#print 'SysPath: '.$device->get_syspath()."\n";
+	#print 'SysName '.$device->get_sysname()."\n";
+	#print 'Sysnum '.$device->get_sysnum()."\n";
+    print 'DevNode '.$device->get_devnode()."\n";
+	#print 'Driver '.$device->get_driver()."\n";
+	#print 'devnum '.$device->get_devnum()."\n";
+	#print 'udev '.$device->get_udev()."\n";
+	return 1;
 }
 
 1;

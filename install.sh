@@ -12,6 +12,7 @@ qsiapi
 	File::Temp  \
 	common::sense \
 	Config::Tiny \
+	Types-Serialiser \
 	JSON::XS \
 	DBI \
 	DBD::SQLite \
@@ -25,7 +26,9 @@ qsiapi
 	Text::CSV_XS \
 	Astro::PAL \
 	Astro::Coords \
-	Udev::FFI
+	Udev::FFI \
+	Net::Curl \
+	Inline::CPP
 
 # XSCookies requires Date::Parse
 

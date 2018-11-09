@@ -16,18 +16,21 @@ use Astro::Coords;
 use lib $Bin;
 use Rigel::Config;
 use Rigel::Stellarium;
+use Rigel::LX200;
 
+=pod
 use Inline CPP => config =>
 	libs => '-lqsiapi -lcfitsio -lftdi1 -lusb-1.0',
 	ccflags => '-std=c++11 -I/usr/include/libftdi1 -I/usr/include/libusb-1.0';
 
 use Inline 'CPP' => './Rigel/camera.cpp';
+=cut
 
 my ($domStatus, $camera, $cfg);
-my ($httpd, $ra, $dec, $focus, $lx, $dome);
+my ($httpd, $ra, $dec, $focus, $lx, $dome, $lx2);
 
-$camera = new Camera();
-print $camera->getInfo(), "\n";
+#$camera = new Camera();
+#print $camera->getInfo(), "\n";
 
 # the config will open usb ports and autodetect
 # whats plugged in
@@ -50,8 +53,16 @@ exit 0;
 
 sub main
 {
-	$lx = new Rigel::Stellarium( recv => \&lxCommand );
+	$lx = new Rigel::Stellarium( recv => \&stCommand );
 
+	my $port = $cfg->get('app', 'lx200');
+	if (-r '/dev/ttyS0')
+	{
+		$lx2 = Rigel::LX200->new( port => '/dev/ttyS0', recv => \&lxCommand );
+		if ($lx2) {
+			print "lx200 client listening on /dev/ttyS0\n";
+		}
+	}
 	# create our web server
 	$httpd = AnyEvent::HTTPD->new(
 		host => '::',
@@ -61,6 +72,7 @@ sub main
 		error => sub { my($e) = @_; print "httpd error: $e\n"; },
 		request => \&webRequest
 	);
+	print "web server on port 9090\n";
 
 	my $tmp = $cfg->get('csimc', 'TTY');
 	# only start daemon if we auto detected it
@@ -169,12 +181,13 @@ sub main
 
 	my $t;
 	$t = AnyEvent->timer (
-		after => 1,
-		#interval => 1,
+		after => 3,
+		interval => 3,
 		cb => sub {
-			print "timer fired\n";
-			# $camera->takePicture();
-			# print "pict taken\n";
+			if ($cfg->checkMonitor())
+			{
+				# usb add/removed
+			}
 		}
 	);
 
@@ -427,9 +440,16 @@ sub telescopeStatus
 =cut
 }
 
-
-sub lxCommand($coords)
+sub stCommand($coords)
 {
-	print "Main lxCommand\n";
+	print "Main stCommand\n";
 	print $coords->status, "\n";
+}
+
+sub lxCommand($cmd, $handle)
+{
+	print "Main lxCommand: $cmd\n";
+	if ($cmd eq ':Me#') {
+		print "ok, go east\n";
+	}
 }

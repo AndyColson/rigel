@@ -38,7 +38,7 @@ sub new {
 		$self->{real_host} = $host;
 		return $self->{backlog};
 	};
-
+	print "stellarium client listening on on 10001\n";
 	return $self
 }
 
@@ -93,7 +93,7 @@ sub do_read($self, $handle)
 
 sub do_disconnect($self, $error=0)
 {
-	print "LX200 disconnect\n";
+	print "Stellarium disconnect\n";
 	if ($error) {
 		print "Error: $error\n";
 	}
