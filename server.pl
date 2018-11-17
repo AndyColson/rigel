@@ -13,6 +13,7 @@ use HTTP::XSCookies qw/bake_cookie crush_cookie/;
 use Text::CSV_XS;
 use JSON::XS;
 use Astro::Coords;
+use POSIX qw(strftime);
 use lib $Bin;
 use Rigel::Config;
 use Rigel::Stellarium;
@@ -45,6 +46,18 @@ my $tt = Text::Xslate->new(
 	path => $cfg->get('app', 'template'),
 	cache_dir => "$Bin/cache",
 	syntax => 'Metakolon'
+);
+
+my %lxCommands = (
+	':Aa#' => \&startAlignment,
+	':Ga#' => \&getTime,
+	':GC#' => \&getDate,
+	':hS#' => \&goHome,
+	':hF#' => \&goHome,
+	':hP#' => \&goHome,
+	':h?#' => \&homeStatus,
+	':Me#' => \&slewEast,
+	':Q#'  => \&allStop
 );
 
 
@@ -254,23 +267,23 @@ sub webRequest($httpd, $req)
 	}
 
 	my $path = $req->url->path;
-	if ($path eq '/left')
+	if ($path eq '/west')
 	{
-		print "go left\n";
+		print "go west\n";
 		$ra->push_write('etvel=-15000;');
 
 		return sendJson($req, {});
 	}
-	if ($path eq '/right')
+	if ($path eq '/east')
 	{
-		print "go right\n";
-		$ra->push_write('etvel=15000;');
+		print "go east\n";
+		slewEast($self);
 		return sendJson($req, {});
 	}
 	if ($path eq '/stop')
 	{
 		print "Stop\n";
-		$ra->push_write('stop();');
+		allStop($self);
 		return sendJson($req, {});
 	}
 	if ($path eq '/status')
@@ -448,8 +461,48 @@ sub stCommand($coords)
 
 sub lxCommand($cmd, $handle)
 {
-	print "Main lxCommand: $cmd\n";
-	if ($cmd eq ':Me#') {
-		print "ok, go east\n";
+	my $f = $funcs{$cmd};
+	if ($f) {
+		print "lxCommand: $cmd\n";
+		$f->($self, $handle);
+	} else {
+		print "unknown lxCommand: $cmd\n";
 	}
 }
+
+
+sub startAlignment($self, $handle)
+{
+	# not needed, return true
+	$self->{tty}->push_write('1');
+}
+
+sub goHome($self, $handle=undef)
+{
+	$ra->push_write('findhom();');
+}
+
+sub slewEast($self, $handle=undef)
+{
+	$ra->push_write('etvel=15000;');
+	print "ok, going east\n";
+}
+
+sub getTime($self, $handle)
+{
+	my $buf = strftime '%H-%M-%S', localtime();
+	$buf .= '#';
+	$self->{tty}->push_write($buf);
+}
+sub getDate($self, $handle)
+{
+	my $buf = strftime '%m/%d/%y', localtime();
+	$buf .= '#';
+	$self->{tty}->push_write($buf);
+}
+
+sub allStop($self, $handle=undef)
+{
+	$ra->push_write('stop();');
+}
+

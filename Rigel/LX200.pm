@@ -12,10 +12,6 @@ use Astro::Coords;
 	my $lx = Rigel::LX200->new( port => '/dev/ttyUSB0', recv => sub($cmd, $handle) {} )
 =cut
 
-my %funcs = (
-	':Aa#' => \&writeFalse
-);
-
 sub new {
 	my $this  = shift;
 	my $class = ref($this) || $this;
@@ -74,7 +70,7 @@ sub readSerial($self, $handle)
 				{
 					$cmd = substr($buf, 0, $at+1);
 					$buf = substr($buf, $at+1);
-					$self->process($cmd);
+					$self->{recv}($cmd, $self->{tty});
 				}
 				else {
 					$again = 0;
@@ -94,23 +90,6 @@ sub readSerial($self, $handle)
 	#print "End [$buf]\n";
 }
 
-sub process($self, $cmd)
-{
-	my $f = $funcs{$cmd};
-	if ($f) {
-		print "LX200 cmd: [$cmd]\n";
-		$f->($self);
-	}
-	else {
-		$self->{recv}($cmd, $self->{tty});
-	}
-}
-
-sub writeFalse($self)
-{
-	$self->{tty}->push_write('1');
-	return 0;
-}
 
 1;
 
