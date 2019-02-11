@@ -44,6 +44,9 @@ print "Apparent: RA: $ra, Dec: $dec\n";
 
 ($ra, $dec) = $c->radec();
 print "J2000     RA: $ra, Dec: $dec\n";
+$ra = $c->ra(format => 'dec' );
+$dec = $c->dec(format => 'dec' );
+print "J2000     RA: $ra, Dec: $dec\n";
 
 # print join("\n", Astro::Telescope->telNames);
 #print join("\n", $c->array);
@@ -51,4 +54,4 @@ print "J2000     RA: $ra, Dec: $dec\n";
 my($az, $el) = $c->azel();
 print "Az: $az\nEl: $el\n";
 
-print "Status: ", $c->status, "\n";
+#print "Status: ", $c->status, "\n";

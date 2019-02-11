@@ -1,13 +1,78 @@
--- dbext:profile=sqlite:dbname=stars.sqlite
+-- dbext:profile=sqlite:dbname=../stars.sqlite
+
+create table catalog(
+	catid integer primary key,
+	name text not null
+);
+create index catalog_name on catalog(name);
+
+create table star(
+	starid integer primary key,
+	ra float,
+	dec float,
+	type text,
+	plx float,
+	pmra float,
+	pmdec float,
+	radial float,
+	redshift float,
+	spec text,
+	bmag float,
+	vmag float
+);
+create index star_ra on star(ra);
+create index star_dec on star(dec);
+
+create table lookup(
+	starid integer,
+	catid integer,
+	id text
+);
+-- create index lookup_id on lookup(id);
+create index lookup_id on lookup(catid, id);
+create index lookup_star on lookup(starid);
+-- drop index lookup_catid
+-- create index lookup_catid on lookup(catid);
+
+drop view v_star;
+
+create view v_star as
+select catalog.name as catalog, lookup.id, star.*
+from star
+inner join lookup on lookup.starid = star.starid
+inner join catalog on catalog.catid = lookup.catid
+
+
+
+----------------
+
 
 select count(*) from lookup
 select count(*) from star
-select distinct name from catalog order by name;
+select count(distinct name) from catalog;
 
+select max(starid) from star
 select * from v_star limit 10
 
 select * from v_star
+where starid = 1478741
 where ra between 59.980 and 59.982
+
+select * from catalog where name = 'TYC'
+select * from lookup where catid = 14 order by id
+
+select sqrt(square(ra - 266.400214824826) + square(dec - -4.3972132075578)) as dist,
+v_star.*
+from v_star
+where ra between 266.400214824826 - 0.6 and 266.400214824826 + 0.6
+and dec between -4.3972132075578 - 0.6 and -4.3972132075578 + 0.6
+order by 1
+
+and catalog = 'HIP'
+
+PRAGMA compile_options;
+select (2-1)
+select square(2)
 
 select min(ra), max(ra) from star
 select min(dec), max(dec) from star
@@ -17,13 +82,6 @@ select * from star where dec - dec <> 0
 
 select count(*) from star where dec between 70.1 and 70.2
 
-drop view v_star;
-
-create view v_star as
-select catalog.name as catalog, lookup.id, star.*
-from star
-inner join lookup on lookup.starid = star.starid
-inner join catalog on catalog.catid = lookup.catid
 
 explain query plan
 select * from v_star where catalog = '7.39'
@@ -61,21 +119,17 @@ from star
 inner join lookup on lookup.starid = star.starid
 where lookup.id = '899' and lookup.catid = (select catid from catalog where name = 'HD' )
 
-create index if not exists lookup_id on lookup(catid, id);
-drop index lookup_id;
-
-create index if not exists lookup_id on lookup(id);
-create index if not exists lookup_catid on lookup(catid);
-create index if not exists catalog_name on catalog(name)
-
-drop index lookup_id;
-drop index lookup_catid;
-create index lookup_id on lookup(catid, id);
-
-create index star_ra on star(ra);
-create index star_dec on star(dec);
+select * from star where starid = 591239
 
 -- === Delete star
+-- does a star have something in the lookup?
+delete from star where starid in (
+  select star.starid
+  from star
+  left join lookup on star.starid = lookup.starid
+  where lookup.starid is null
+)
+
 delete from lookup where starid in (select distinct starid from star where ra = 'No Coord.' )
 delete from star where ra = 'No Coord.';
 delete from lookup where starid in (select distinct starid from star where ra like '::err%' )

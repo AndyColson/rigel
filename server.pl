@@ -12,12 +12,15 @@ use Data::Dumper;
 use HTTP::XSCookies qw/bake_cookie crush_cookie/;
 use Text::CSV_XS;
 use JSON::XS;
+use Astro::PAL;
 use Astro::Coords;
+use Astro::Telescope;
 use POSIX qw(strftime);
 use lib $Bin;
 use Rigel::Config;
 use Rigel::Stellarium;
 use Rigel::LX200;
+use Rigel::Simbad;
 
 =pod
 use Inline CPP => config =>
@@ -58,6 +61,12 @@ my %lxCommands = (
 	':h?#' => \&homeStatus,
 	':Me#' => \&slewEast,
 	':Q#'  => \&allStop
+);
+my $telescope = new Astro::Telescope(
+	Name => 'Rigel',
+	Long => -91.498558 * DD2R,
+	Lat => 41.888881 * DD2R,
+	Alt => 246.888
 );
 
 
@@ -277,13 +286,13 @@ sub webRequest($httpd, $req)
 	if ($path eq '/east')
 	{
 		print "go east\n";
-		slewEast($self);
+		slewEast();
 		return sendJson($req, {});
 	}
 	if ($path eq '/stop')
 	{
 		print "Stop\n";
-		allStop($self);
+		allStop();
 		return sendJson($req, {});
 	}
 	if ($path eq '/status')
@@ -456,15 +465,28 @@ sub telescopeStatus
 sub stCommand($coords)
 {
 	print "Main stCommand\n";
-	print $coords->status, "\n";
+
+	$coords->telescope($telescope);
+	# $c->datetime( new Time::Piece() );
+	$coords->usenow( 1 );
+
+	$ra = $coords->ra(format => 'dec' );
+	$dec = $coords->dec(format => 'dec' );
+	print "J2000     RA: $ra, Dec: $dec\n";
+	print "-- Database:\n";
+	my $x = Simbad->new();
+	my $star = $x->findLocal('coord', $coords);
+	print Dumper($star);
+
+	print "-- Status:\n", $coords->status, "\n";
 }
 
 sub lxCommand($cmd, $handle)
 {
-	my $f = $funcs{$cmd};
+	my $f = $lxCommands{$cmd};
 	if ($f) {
 		print "lxCommand: $cmd\n";
-		$f->($self, $handle);
+		$f->($handle);
 	} else {
 		print "unknown lxCommand: $cmd\n";
 	}
