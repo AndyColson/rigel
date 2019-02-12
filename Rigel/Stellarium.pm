@@ -68,8 +68,12 @@ sub do_read($self, $handle)
 	$handle->{rbuf} = '';
 	exit if (! $buf);
 	#print "LX [$buf]\n";
+	#l = 32bit, q=64bit.
+	#L = unsigned, l = signed
+	#4+8+4+4 = 20
+	# rpi doesnt support Q, so use two L's
 
-	my($size, $msec, $ra, $dec, $status) = unpack("LQLl", $buf);
+	my($size, $msec1, $msec2, $ra, $dec, $status) = unpack("LLLLl", $buf);
 	#print "size: $size\n";
 	#print "msec: $msec\n";
 	#print "  ra: $ra\n";

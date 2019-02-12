@@ -7,6 +7,7 @@ use Time::HiRes qw( gettimeofday tv_interval );
 use Scalar::Util qw( looks_like_number );
 use Astro::Coords;
 use Data::Dumper;
+use FindBin qw($Bin);
 
 sub new($class, $path='') {
 	my $obj = {
@@ -41,7 +42,9 @@ sub opendb($path)
 	}
 	my $db = DBI->connect("dbi:SQLite:dbname=$tmp");
 	$db->sqlite_enable_load_extension(1);
-	$db->sqlite_load_extension('/usr/bin/libsqlitefunctions');
+	$tmp = "$Bin/bin/libsqlitefunctions";
+	print "Load: $tmp\n";
+	$db->sqlite_load_extension($tmp);
 	return $db;
 }
 
@@ -245,6 +248,7 @@ sub saveStar($self, $inf, $result)
 
 sub findLocal($self, $catalog, $id)
 {
+	my $t0 = [gettimeofday];
 	my $db = $self->{db};
 	return 0 if (! $db);
 	if ($catalog eq 'coord')
@@ -266,6 +270,7 @@ order by 1
 
 		my $row = $q->fetchrow_hashref;
 		$q = undef;
+		print "FindLocal: ", tv_interval($t0), "\n";
 		return $row;
 
 	}
@@ -280,6 +285,7 @@ where catalog.name = ? and lookup.id = ?}
 		$q->execute($catalog, $id);
 		my $row = $q->fetchrow_hashref;
 		$q = undef;
+		print "FindLocal: ", tv_interval($t0), "\n";
 		return $row;
 	}
 }
