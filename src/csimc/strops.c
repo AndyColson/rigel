@@ -12,19 +12,7 @@
 #define PI  3.14159265358979323846
 #endif
 
-char *
-basenm (str)
-char *str;
-{
-    char *base;
-    char c;
 
-    for (base = str; (c = *str++) != '\0'; )
-        if (c == '/')
-            base = str;
-
-    return (base);
-}
 
 /* convert string s to all lower-case IN PLACE */
 void

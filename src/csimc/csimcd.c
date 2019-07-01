@@ -43,9 +43,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <syslog.h>
+#include <libgen.h>
 
 #include "telenv.h"
-#include "running.h"
 #include "csiutil.h"
 #include "configfile.h"
 #include "strops.h"
@@ -117,6 +117,7 @@ static char *tty = tty_def;     /* tty we actually use */
 static int port = CSIMCPORT;        /* default IP port */
 static char cfg_def[] = "csimc"; /* default config file */
 static char *cfg = cfg_def;     /* config file we actually use */
+static char *me = "csimcd";
 
 static fd_set clset;        /* each client fd. host addr = fd + MAXNA */
 static int maxclset = -1;   /* largest fd set in clset, -1 if empty */
@@ -128,7 +129,6 @@ static Byte rseq[NADDR][NADDR]; /* seq of last rx packet acked, [fr][to] */
 static Byte xpkt[PMXLEN];   /* packet being transmitted to CSIMC network */
 static Byte xseq[NADDR];    /* sequence for next tx packet, per net addr. */
 static int verbose;     /* higher to log more details, up to MAXV */
-static int mflag;       /* do not lock.. allow multiple instances */
 static char livenodes[NNODES];  /* set as discover each node */
 static int curtoken = BROKTOK;  /* current token */
 
@@ -149,113 +149,90 @@ static CInfo cinfo[NHOSTS]; /* connection info */
 int
 main (int ac, char *av[])
 {
-    char *me = basenm(av[0]);
+	char * tmp = strdup(av[0]);
+	char * tmp2 = dirname(tmp);
+	chdir(tmp2);
+	free(tmp);
 
-    /* check args */
-    while ((--ac > 0) && ((*++av)[0] == '-'))
-    {
-        char *s;
-        for (s = av[0]+1; *s != '\0'; s++)
-            switch (*s)
-            {
-                case 'c':
-                    if (ac < 2)
-                        usage(me);
-                    cfg = *++av;
-                    ac--;
-                    break;
-                case 'i':
-                    if (ac < 2)
-                        usage(me);
-                    port = atoi(*++av);
-                    ac--;
-                    break;
-                case 'm':
-                    mflag++;
-                    break;
-                case 't':
-                    if (ac < 2)
-                        usage(me);
-                    tty = *++av;
-                    ac--;
-                    break;
-                case 'v':
-                    verbose++;
-                    break;
-                default:
-                    usage(me);
-            }
-    }
+	/* check args */
+	while ((--ac > 0) && ((*++av)[0] == '-'))
+	{
+		char *s;
+		for (s = av[0]+1; *s != '\0'; s++)
+			switch (*s)
+			{
+				case 'v':
+					verbose++;
+					break;
+				default:
+					usage(me);
+			}
+	}
 
-	verbose = 2;
+	// for debugging
+	// verbose = 2;
 
 
-    /* shouldn't be any more args */
-    if (ac > 0)
-        usage(me);
+	/* shouldn't be any more args */
+	if (ac > 0)
+	{
+		usage(me);
+	}
 
-    /* only ever one of us unless explicitly allowed */
-    if (!mflag && lock_running(me) < 0)
-    {
-        daemonLog ("%s: Already running", me);
-        exit(0);
-    }
-
-	if (daemon(0, 0) == -1)
+	if (daemon(1, 0) == -1)
 	{
 		printf("failed to daemonize\n");
 		exit(1);
 	}
 
-    /* set log now to proper place */
-    telOELog(me);
 
-    /* a few signal issues */
-    signal (SIGPIPE, SIG_IGN);
-    signal (SIGHUP, onVerboseSig);
-    signal (SIGTERM, onBye);
-    signal (SIGINT, onBye);
-    signal (SIGQUIT, onBye);
+	/* set log now to proper place */
+	telOELog(me);
 
-    /* init defaults */
-    initCfg();
+	/* a few signal issues */
+	signal (SIGPIPE, SIG_IGN);
+	signal (SIGHUP, onVerboseSig);
+	signal (SIGTERM, onBye);
+	signal (SIGINT, onBye);
+	signal (SIGQUIT, onBye);
 
-    /* open tty, announce socket, init any pty's */
-    openTTY();
-    announce();
-    initCInfo();
-    //initPty();
+	/* init defaults */
+	initCfg();
 
-    /* infinite service loop */
-    atexit (onExit);
-    while (1)
-        mainLoop();
+	/* open tty, announce socket, init any pty's */
+	openTTY();
+	announce();
+	initCInfo();
+	//initPty();
 
-    return (0);
+	/* infinite service loop */
+	atexit (onExit);
+	while (1)
+		mainLoop();
+
+	return (0);
 }
 
 static void
 usage (char *me)
 {
-    fprintf (stderr, "%s: [options]\n", me);
-    fprintf (stderr, "Purpose: provide host app access to CSIMC network\n");
-    fprintf (stderr, "$Revision: 1.2 $\n");
-    fprintf (stderr, "Options:\n");
-    fprintf (stderr, " -c f    alternate config file <f>. default is %s\n",
-             cfg_def);
-    fprintf (stderr, " -i p    listen on port <p>; default is %d\n",
-             CSIMCPORT);
-    fprintf (stderr, " -m      allow multiple instances for multiple LANs\n");
-    fprintf (stderr, " -t tty  alternate <tty>. default is %s\n", tty_def);
-    fprintf (stderr, " -v      verbose; up to %d; SIGHUP also bumps\n", MAXV);
-    fprintf (stderr, "           0: always show errors..\n");
-    fprintf (stderr, "           1: plus basic actions..\n");
-    fprintf (stderr, "           2: plus packet contents.. \n");
-    fprintf (stderr, "           3: plus raw tty input.. \n");
-    fprintf (stderr, "           4: plus tokens.. \n");
-    fprintf (stderr, "           5: plus host traffic. \n");
+	fprintf (stderr, "%s: [options]\n", me);
+	fprintf (stderr, "Purpose: provide host app access to CSIMC network\n");
+	fprintf (stderr, "$Revision: 1.2 $\n");
+	fprintf (stderr, "Options:\n");
+	//fprintf (stderr, " -c f    alternate config file <f>. default is %s\n", cfg_def);
+	//fprintf (stderr, " -i p    listen on port <p>; default is %d\n", CSIMCPORT);
+	//fprintf (stderr, " -m      allow multiple instances for multiple LANs\n");
+	//fprintf (stderr, " -t tty  alternate <tty>. default is %s\n", tty_def);
+	fprintf (stderr, " -v      verbose; up to %d; SIGHUP also bumps\n", MAXV);
+	fprintf (stderr, "           0: always show errors..\n");
+	fprintf (stderr, "           1: plus basic actions..\n");
+	fprintf (stderr, "           2: plus packet contents.. \n");
+	fprintf (stderr, "           3: plus raw tty input.. \n");
+	fprintf (stderr, "           4: plus tokens.. \n");
+	fprintf (stderr, "           5: plus host traffic. \n");
 
-    exit (1);
+	exit (1);
 }
 
 
@@ -263,8 +240,8 @@ usage (char *me)
 static void
 initCfg(void)
 {
-    read1CfgEntry (1, cfg, "TTY", CFG_STR, tty_def, sizeof(tty_def));
-    read1CfgEntry (1, cfg, "PORT", CFG_INT, &port, 0);
+	read1CfgEntry (1, cfg, "TTY", CFG_STR, tty_def, sizeof(tty_def));
+	read1CfgEntry (1, cfg, "PORT", CFG_INT, &port, 0);
 }
 
 

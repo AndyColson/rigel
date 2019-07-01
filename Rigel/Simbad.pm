@@ -9,7 +9,8 @@ use Astro::Coords;
 use Data::Dumper;
 use FindBin qw($Bin);
 
-sub new($class, $path='') {
+sub new($class, $path='')
+{
 	my $obj = {
 		curl	=> Net::Curl::Easy->new(),
 		db		=> opendb($path),
@@ -45,6 +46,9 @@ sub opendb($path)
 	$tmp = "$Bin/bin/libsqlitefunctions";
 	print "Load: $tmp\n";
 	$db->sqlite_load_extension($tmp);
+	$db->do('pragma cache_size=-4096');
+	$db->do('pragma locking_mode=exclusive');
+
 	return $db;
 }
 
@@ -263,6 +267,7 @@ from star
 where ra between ? and ?
 and dec between ? and ?
 order by 1
+limit 1
 }
 		);
 

@@ -31,11 +31,12 @@ readCfgFile (int trace, char *cfn, CfgEntry cea[], int ncea)
     int nfound;
 	int rc;
 
-	snprintf(valu, sizeof(valu), "%s/%s", getenv ("TELHOME"), "config.sqlite");
+	// assume its in the current directory
+	//snprintf(valu, sizeof(valu), "%s/%s", getenv ("TELHOME"), );
 
     //daemonLog ("file %s", valu);
 
-	rc = sqlite3_open_v2(valu, &db, SQLITE_OPEN_READONLY, NULL);
+	rc = sqlite3_open_v2("config.sqlite", &db, SQLITE_OPEN_READONLY, NULL);
 	//daemonLog("sqlite %d", rc);
 
 	if (rc)
@@ -88,7 +89,7 @@ readCfgFile (int trace, char *cfn, CfgEntry cea[], int ncea)
 					daemonLog ("read dbl cfg app [%s] key [%s] = %lf",cfn, cep->name, tmpf);
 					break;
 				case CFG_STR:
-					strncpy ((char *)(cep->valp), sqlite3_column_text(q, 0), cep->slen);
+					strncpy ((char *)(cep->valp), (const char*)sqlite3_column_text(q, 0), cep->slen);
 					daemonLog ("read str cfg app [%s] key [%s] = %s",cfn, cep->name, (char *)(cep->valp));
 					break;
 				default:
@@ -128,58 +129,5 @@ read1CfgEntry (int trace, char *fn, char *name, CfgType t, void *vp, int slen)
     e.slen = slen;
 
     return (readCfgFile (trace, fn, &e, 1) == 1 ? 0 : -1);
-}
-
-/* handy utility to print an error message describing what went wrong with
- * a call to readCfgFile().
- * fn is the offending file name.
- * retval is the return value from readCfgFile().
- * pf is a printf-style function to call. use daemonLog if NULL.
- * cea[]/ncea are the same as passed to readCfgFile().
- */
-void
-cfgFileError (char *fn, int retval, CfgPrFp pf, CfgEntry cea[], int ncea)
-{
-    int i;
-
-    if (!pf)
-        pf = (CfgPrFp) daemonLog;
-
-    if (retval < 0)
-    {
-        (*pf) ("%s: %s\n", basenm(fn), strerror(errno));
-    }
-    else
-    {
-        for (i = 0; i < ncea && retval < ncea; i++)
-        {
-            if (!cea[i].found)
-            {
-                (*pf) ("%s: %s not found\n", basenm(fn), cea[i].name);
-                retval++;
-            }
-        }
-    }
-}
-
-/* search cea[] for name and return 1 if present and marked found, return 0 if
- * present but not marked found, return -1 if not present at all.
- */
-int
-cfgFound (char *name, CfgEntry cea[], int ncea)
-{
-    CfgEntry *cep, *lcea = cea+ncea;
-    int found = 0;
-    int present = 0;
-
-    for (cep = cea; cep < lcea; cep++)
-        if (strcmp (name, cep->name) == 0)
-        {
-            present = 1;
-            found = cep->found;
-            break;
-        }
-
-    return (present ? (found ? 1 : 0) : -1);
 }
 

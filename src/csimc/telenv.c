@@ -14,14 +14,15 @@
 #include "telenv.h"
 #include "strops.h"
 
-static char *telhome;
-static char telhome_def[] = "/usr/local/telescope";
+//static char *telhome;
+//static char telhome_def[] = "/usr/local/telescope";
 
-static void getTELHOME(void);
+//static void getTELHOME(void);
 
 /* just like fopen() except tries name literally first then prepended
  * with $TELHOME (or default if not defined), unless starts with /.
  */
+/*
 FILE *
 telfopen (char *name, char *how)
 {
@@ -35,10 +36,12 @@ telfopen (char *name, char *how)
     }
     return (fp);
 }
+*/
 
 /* just like fopen() except tries name literally first then prepended
  * with $TELHOME (or default if not defined), unless starts with /.
  */
+/*
 int
 telopen (char *name, int flags, ...)
 {
@@ -72,12 +75,14 @@ telopen (char *name, int flags, ...)
 
     return (ret);
 }
+*/
 
 /* convert the old path to the new path, allowing for TELHOME.
  * this is for cases when a pathname is used for other than open, such as
  * opendir, unlink, mknod, etc etc.
  * it is ok for caller to use the same buffer for each.
  */
+/*
 void
 telfixpath (char *newp, char *old)
 {
@@ -90,10 +95,9 @@ telfixpath (char *newp, char *old)
         (void) strcpy (tmp, old);
     (void) strcpy (newp, tmp);
 }
-
-/* reopen stdout and stderr so they go to $TELHOME/archive/logs/<progname>.log
- * and are unbuffered for improved delivery reliability.
- * return 0 if ok, else -1.
+*/
+/* use syslog, like a good daemon
+ * return 0
  */
 int
 telOELog(char *progname)
@@ -102,20 +106,27 @@ telOELog(char *progname)
 	openlog("csimcd", LOG_PID, LOG_DAEMON);
 	syslog(LOG_INFO, "Program startup");
 
+	char cwd[1024];
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		syslog(LOG_INFO, "Current working dir: %s", cwd);
+	} else {
+		syslog(LOG_INFO, "getcwd() error");
+	}
+
     return 0;
 }
 
 /* return a pointer to a static string of the form YYYYMMDDHHMMSS
  * based on the given UTC time_t value.
  */
-char *
+/*char *
 timestamp(time_t t)
 {
     static char str[15];
     struct tm *tmp = gmtime (&t);
 
     if (!tmp)
-        sprintf (str, "gmtime failed!");    /* N.B. same length */
+        sprintf (str, "gmtime failed!");    //  N.B. same length
     else
         sprintf (str, "%04d%02d%02d%02d%02d%02d", tmp->tm_year+1900,
                  tmp->tm_mon+1, tmp->tm_mday, tmp->tm_hour,
@@ -123,6 +134,7 @@ timestamp(time_t t)
 
     return (str);
 }
+*/
 
 /* rather like printf but prepends timestamp().
  * also appends \n if not in result.
@@ -137,6 +149,7 @@ daemonLog (char *fmt, ...)
     va_end (ap);
 }
 
+/*
 static void
 getTELHOME()
 {
@@ -146,4 +159,5 @@ getTELHOME()
     if (!telhome)
         telhome = telhome_def;
 }
+*/
 

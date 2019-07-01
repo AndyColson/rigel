@@ -5,15 +5,16 @@ use feature 'signatures';
 use DBI;
 use Device::SerialPort;
 use Udev::FFI;
+use Time::HiRes 'sleep';
 
 sub new($class)
 {
 	my $self = {modified => 0};
 	bless($self, $class);
-	$self->{db} = DBI->connect("dbi:SQLite:dbname=$ENV{TELHOME}/config.sqlite");
+	die unless (-e 'bin/config.sqlite');
+	$self->{db} = DBI->connect('dbi:SQLite:dbname=bin/config.sqlite');
 	$self->{app} = {};
 	$self->findPorts();
-
 
 	my $udev = Udev::FFI->new() or
 		die "Can't create Udev::FFI object: $@";
@@ -91,12 +92,15 @@ sub findPorts($self)
 
 		# send the csimc ping
 		my $buf = pack('CCCCCC', 0x88, 0x00, 0x20, 0x16, 0x00, 0xbe);
-		open(F, '>', 'out');
-		print F $buf;
-		close(F);
+
+		# dump it for deubgging
+		#open(F, '>', 'out');
+		#print F $buf;
+		#close(F);
+
 		my $x = $tty->write($buf);
 		#print "wrote $x bytes\n";
-		sleep(1);
+		sleep(0.50);  # seconds
 		my ($count, $buf) = $tty->read(1);
 		#print "read count $count\n";
 		if ($count == 1)

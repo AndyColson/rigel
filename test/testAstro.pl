@@ -19,7 +19,7 @@ $c = new Astro::Coords(
 	name => "Nunki",
 	ra   => '18:55:15.95',
 	dec  => '-26:17:49.3',
-	type => 'j2000',
+	type => 'J2000',
 	units=> 'sexagesimal'
 );
 #my $c = $c = new Astro::Coords( long => '05:22:56',
@@ -34,7 +34,8 @@ my $tel = new Astro::Telescope(
 		Alt => 246.888
 );
 
-print Dumper($tel);
+# print Dumper($tel);
+print "Telescope: Lat: ", $tel->lat('s'), " Long: ", $tel->long('s'), "\n";
 $c->telescope($tel);
 # $c->datetime( new Time::Piece() );
 $c->usenow( 1 );

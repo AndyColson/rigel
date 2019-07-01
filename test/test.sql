@@ -45,7 +45,42 @@ inner join catalog on catalog.catid = lookup.catid
 
 
 ----------------
+select catalog, count(*)
+from v_star
+group by catalog
+order by 2
 
+select catid, id, count(*)
+from lookup
+group by catid, id
+having count(*) > 1;
+
+select starid
+from lookup
+where catid = 1 and id = 'J00023184-7951217'
+
+select ra, dec, count(*)
+from star
+group by ra, dec
+having count(*) > 1
+
+select *
+from v_star
+where ra like '1.13377455%' and dec like '-64.179830%'
+
+select starid, catalog, id, count(*)
+from v_star
+group by starid, catalog, id
+having count(*) > 1;
+
+select starid, catid, id, count(*)
+from lookup
+group by starid, catid, id
+having count(*) > 1;
+
+
+select * from v_star
+where starid in (341890, 344646, 2608076)
 
 select count(*) from lookup
 select count(*) from star
@@ -55,10 +90,11 @@ select max(starid) from star
 select * from v_star limit 10
 
 select * from v_star
-where starid = 1478741
 where ra between 59.980 and 59.982
+where starid = 1478741
 
-select * from catalog where name = 'TYC'
+select * from catalog where name = 'TYC';
+
 select * from lookup where catid = 14 order by id
 
 select sqrt(square(ra - 266.400214824826) + square(dec - -4.3972132075578)) as dist,
@@ -134,6 +170,7 @@ delete from lookup where starid in (select distinct starid from star where ra = 
 delete from star where ra = 'No Coord.';
 delete from lookup where starid in (select distinct starid from star where ra like '::err%' )
 delete from star where ra like '::err%';
+
 
 delete from catalog where catid in (
   select catalog.catid

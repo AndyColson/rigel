@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <libgen.h>
 
 #include "strops.h"
 #include "telenv.h"
@@ -51,7 +52,6 @@ static void cmdLoad (char cmd[]);
 static void cmdHistory (char cmd[]);
 static void cmdSerial (char cmd[]);
 
-static char *me;            /* our name, for usage */
 static int nflag;           /* initial connection to addr */
 static int addr;            /* if nflag address to connect */
 static int tflag;           /* initial connection to tty */
@@ -65,7 +65,7 @@ static char *cfg_fn = cfg_def;      /* actual config file */
 static char ipme[] = "127.0.0.1";   /* local host IP */
 char *host = ipme;          /* actual server host */
 int port = CSIMCPORT;           /* server port */
-static char dname[] = "csimcd";     /* name of network daemon */
+static char dname[] = "./csimcd";     /* name of network daemon */
 
 static fd_set fdset;            /* set of all conn fds, + stdin */
 static int maxfdset;            /* max fd in fdset */
@@ -76,7 +76,10 @@ static char tracefn[256];       /* tracing file name, if tracefp */
 int
 main (int ac, char *av[])
 {
-    me = basenm(av[0]);
+	char * tmp = strdup(av[0]);
+	char * tmp2 = dirname(tmp);
+	chdir(tmp2);
+	free(tmp);
 
     while ((--ac > 0) && ((*++av)[0] == '-'))
     {
@@ -202,7 +205,7 @@ pollBack (int fd)
 static void
 usage()
 {
-    fprintf(stderr, "%s: [options]\n", me);
+    fprintf(stderr, "csimc: [options]\n");
     fprintf(stderr, "Purpose: command line interface to CSIMC network\n");
     fprintf(stderr, "$Revision: 1.1.1.1 $\n");
     fprintf(stderr, "Options:\n");
@@ -258,12 +261,12 @@ daemonCheck()
 
     if (fd<0 && (!host || !strcmp(host,"localhost") || !strcmp(host,ipme)))
     {
-        char buf[256];
+        //char buf[256];
         int i;
 
         //sprintf (buf, "rund %s -i %d", dname, port);
-		sprintf(buf, "%s/%s", getenv("TELHOME"), dname);
-        if (system (buf) != 0)
+		//sprintf(buf, "%s/%s", getenv("TELHOME"), dname);
+        if (system (dname) != 0)
         {
             fprintf (stderr, "Can not start %s\n", dname);
             exit (1);

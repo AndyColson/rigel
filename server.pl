@@ -36,18 +36,23 @@ my ($httpd, $ra, $dec, $focus, $lx, $dome, $lx2);
 #$camera = new Camera();
 #print $camera->getInfo(), "\n";
 
+# path's are relative to the server.pl script, set it as
+# our cwd
+chdir($Bin);
+
+
 # the config will open usb ports and autodetect
 # whats plugged in
 $cfg = Rigel::Config->new();
-$cfg->set('app', 'template', "$Bin/template");
+$cfg->set('app', 'template', 'template');
 
-if (! -d "$Bin/cache")
+if (! -d 'cache')
 {
-	mkdir("$Bin/cache") or die;
+	mkdir('cache') or die;
 }
 my $tt = Text::Xslate->new(
 	path => $cfg->get('app', 'template'),
-	cache_dir => "$Bin/cache",
+	cache_dir => 'cache',
 	syntax => 'Metakolon'
 );
 
@@ -65,9 +70,10 @@ my %lxCommands = (
 my $telescope = new Astro::Telescope(
 	Name => 'Rigel',
 	Long => -91.498558 * DD2R,
-	Lat => 41.888881 * DD2R,
-	Alt => 246.888
+	Lat  => 41.888881 * DD2R,
+	Alt  => 246.888
 );
+my $simbad = Simbad->new();
 
 
 main();
@@ -103,8 +109,11 @@ sub main
 		print "connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n";
 		print "loading csimc scripts...\n";
 		# -r reboot, -l load scripts.
-		system($ENV{TELHOME}.'/csimc -rl < /dev/null');
+		# should start csimcd and load the *.cmc scripts.
+		# wont return untill everything is ready
+		system('bin/csimc -rl < /dev/null');
 
+		# each control (ra, dec, focus) gets its own connection
 		tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
 			my ($fh) = @_ or die "csimcd connect failed: $!";
 			$ra = new AnyEvent::Handle(
@@ -474,8 +483,7 @@ sub stCommand($coords)
 	$dec = $coords->dec(format => 'dec' );
 	print "J2000     RA: $ra, Dec: $dec\n";
 	print "-- Database:\n";
-	my $x = Simbad->new();
-	my $star = $x->findLocal('coord', $coords);
+	my $star = $simbad->findLocal('coord', $coords);
 	print Dumper($star);
 
 	print "-- Status:\n", $coords->status, "\n";

@@ -109,24 +109,18 @@ loadAllCfg (char *cfn)
     }
 }
 
-/* open the given file.
- * check first the path given, then in $TELHOME/archive/config.
+/* open the given file from config folder
  * return FILE * else NULL.
  */
 static FILE *
 openACFile (char *fn)
 {
     FILE *fp;
-
-    fp = fopen (fn, "r");
+	char buf[1024];
+	sprintf (buf, "config/%s", fn);
+	fp = fopen (buf, "r");
     if (!fp)
-    {
-        char buf[1024];
-        sprintf (buf, "archive/config/%s", fn);
-        fp = telfopen (buf, "r");
-    }
-    if (!fp)
-        printf ("%s: %s\n", fn, strerror(errno));
+        printf ("%s: %s\n", buf, strerror(errno));
     return (fp);
 }
 

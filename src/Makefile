@@ -11,6 +11,6 @@ all: ../bin/csimc ../bin/csimcd ../bin/libsqlitefunctions.so
 ../bin/csimc: csimc/csimc.o csimc/boot.o csimc/eintrio.o csimc/el.o csimc/csiutil.o  csimc/strops.o csimc/configfile.o csimc/telenv.o
 	$(CC) $(CFLAGS) -o $@ $^ -lm -lsqlite3
 
-../bin/csimcd: csimc/csimcd.o csimc/telenv.o csimc/strops.o csimc/configfile.o csimc/running.o csimc/csiutil.o
+../bin/csimcd: csimc/csimcd.o csimc/telenv.o csimc/strops.o csimc/configfile.o csimc/csiutil.o
 	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE -D_XOPEN_SOURCE -o $@ $^ -lm -lsqlite3
 

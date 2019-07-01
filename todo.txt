@@ -11,7 +11,7 @@
 	csi lights?
 	stardb?
 	upload fits?
-	fits to jpg?
+	fits to jpg? (vips)
 
 website version 1:
 1) login
