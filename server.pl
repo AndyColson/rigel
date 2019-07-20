@@ -31,7 +31,7 @@ use Inline 'CPP' => './Rigel/camera.cpp';
 =cut
 
 my ($domStatus, $camera, $cfg);
-my ($httpd, $ra, $dec, $focus, $lx, $dome, $lx2);
+my ($httpd, $ra, $dec, $focus, $stSocket, $dome, $lx2);
 
 #$camera = new Camera();
 #print $camera->getInfo(), "\n";
@@ -81,9 +81,8 @@ exit 0;
 
 sub main
 {
-	$lx = new Rigel::Stellarium( recv => \&stCommand );
+	$stSocket = new Rigel::Stellarium( recv => \&stCommand );
 
-	my $port = $cfg->get('app', 'lx200');
 	if (-r '/dev/ttyS0')
 	{
 		$lx2 = Rigel::LX200->new( port => '/dev/ttyS0', recv => \&lxCommand );
@@ -501,37 +500,37 @@ sub lxCommand($cmd, $handle)
 }
 
 
-sub startAlignment($self, $handle)
+sub startAlignment($handle)
 {
 	# not needed, return true
-	$self->{tty}->push_write('1');
+	$handle->push_write('1');
 }
 
-sub goHome($self, $handle=undef)
+sub goHome($handle)
 {
 	$ra->push_write('findhom();');
 }
 
-sub slewEast($self, $handle=undef)
+sub slewEast($handle)
 {
 	$ra->push_write('etvel=15000;');
 	print "ok, going east\n";
 }
 
-sub getTime($self, $handle)
+sub getTime($handle)
 {
 	my $buf = strftime '%H-%M-%S', localtime();
 	$buf .= '#';
-	$self->{tty}->push_write($buf);
+	$handle->push_write($buf);
 }
-sub getDate($self, $handle)
+sub getDate($handle)
 {
 	my $buf = strftime '%m/%d/%y', localtime();
 	$buf .= '#';
-	$self->{tty}->push_write($buf);
+	$handle->push_write($buf);
 }
 
-sub allStop($self, $handle=undef)
+sub allStop()
 {
 	$ra->push_write('stop();');
 }
