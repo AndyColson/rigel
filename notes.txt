@@ -55,3 +55,15 @@ ra limit: 14,156,229
 00> =epos;
 0
 
+
+PI /dev/ttyS0
+laptop: screen /dev/ttyUSB0 115200
+
+pi3:
+/boot/config.txt enable_uart=1
+
+usb console:
+enable /etc/inittab, ttyS0 line
+enable /boot/cmdline.txt console=ttyS0,115200
+
+

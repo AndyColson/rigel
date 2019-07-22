@@ -2,6 +2,12 @@
 #include "QSIError.h"
 #include <fitsio.h>
 #include <tiffio.h>
+
+// char = int8
+// short = int16
+// int = int32
+// long = int64
+// long long = int64
 void AdjustImage(unsigned short * buffer, int cols, int rows, unsigned char * out);
 
 class Camera {
@@ -10,6 +16,7 @@ public:
 	~Camera();
 	const char *getInfo();
 	void takePicture();
+	pdl* test();
 private:
 	QSICamera cam;
 	std::string info;
@@ -132,6 +139,23 @@ int	WriteFITS(unsigned short *buffer, int cols, int rows, const char *filename)
 	fits_write_pix(fits, TUSHORT, fpixel, cols * rows, buffer, &status);
 	fits_close_file(fits, &status);
 	return 0;
+}
+
+pdl* Camera::test()
+{
+	// return getpdl();
+	pdl *p = PDL->pdlnew();
+	PDL_Indx dims[] = {5,5};
+	PDL->setdims (p, dims, 2);  /* set dims */
+	p->datatype = PDL_US;         /* and data type */
+	PDL->allocdata (p);             /* allocate the data chunk */
+
+	PDL_Ushort *dataf = (PDL_Ushort *) p->data;
+	PDL_Indx i; /* dimensions might be 64bits */
+
+	for (i=0;i<5*5;i++)
+		dataf[i] = i; /* the data must be initialized ! */
+	return p;
 }
 
 void Camera::takePicture()
