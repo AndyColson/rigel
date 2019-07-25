@@ -16,25 +16,34 @@ use Astro::PAL;
 use Astro::Coords;
 use Astro::Telescope;
 use POSIX qw(strftime);
-use lib $Bin;
+use PDL;
+use PDL::Core::Dev;
+use Cwd 'abs_path';
+use lib "$Bin/..";
 use Rigel::Config;
 use Rigel::Stellarium;
 use Rigel::LX200;
 use Rigel::Simbad;
+#use Memory::Usage;
 
-=pod
 use Inline CPP => config =>
 	libs => '-lqsiapi -lcfitsio -lftdi1 -lusb-1.0',
-	ccflags => '-std=c++11 -I/usr/include/libftdi1 -I/usr/include/libusb-1.0';
+	ccflags => '-std=c++11 -I/usr/include/libftdi1 -I/usr/include/libusb-1.0',
+	INC           => &PDL_INCLUDE,
+    TYPEMAPS      => &PDL_TYPEMAP,
+    AUTO_INCLUDE  => &PDL_AUTO_INCLUDE,
+    BOOT          => &PDL_BOOT;
 
-use Inline 'CPP' => './Rigel/camera.cpp';
-=cut
+use Inline 'CPP' => '../Rigel/camera.cpp';
+
+#my $mu = Memory::Usage->new();
+#$mu->record('startup');
 
 my ($domStatus, $camera, $cfg);
 my ($httpd, $ra, $dec, $focus, $stSocket, $dome, $lx2);
 
-#$camera = new Camera();
-#print $camera->getInfo(), "\n";
+$camera = new Camera();
+print $camera->getInfo(), "\n";
 
 # path's are relative to the server.pl script, set it as
 # our cwd
@@ -44,15 +53,15 @@ chdir($Bin);
 # the config will open usb ports and autodetect
 # whats plugged in
 $cfg = Rigel::Config->new();
-$cfg->set('app', 'template', 'template');
+$cfg->set('app', 'template', abs_path('../template'));
 
-if (! -d 'cache')
+if (! -d '/tmp/cache')
 {
-	mkdir('cache') or die;
+	mkdir('/tmp/cache') or die;
 }
 my $tt = Text::Xslate->new(
 	path => $cfg->get('app', 'template'),
-	cache_dir => 'cache',
+	cache_dir => '/tmp/cache',
 	syntax => 'Metakolon'
 );
 
@@ -110,7 +119,7 @@ sub main
 		# -r reboot, -l load scripts.
 		# should start csimcd and load the *.cmc scripts.
 		# wont return untill everything is ready
-		system('bin/csimc -rl < /dev/null');
+		system('./csimc -rl < /dev/null');
 
 		# each control (ra, dec, focus) gets its own connection
 		tcp_connect $cfg->get('csimc', 'HOST'), $cfg->get('csimc', 'PORT'), sub {
@@ -221,6 +230,9 @@ sub main
 		}
 	);
 
+	#$mu->record('ready');
+	#$mu->dump();
+
 	$httpd->run();  #start event loop, never returns
 }
 
@@ -313,9 +325,17 @@ sub webRequest($httpd, $req)
 		$path = '/index.html';
 	}
 
-	my $file = $t . $path;
+	my $file = abs_path($t . $path);
 
-	print "file: $file\npath: $path\n";
+	print "uri [$path] -> [$file]";
+
+	if ($file !~ /^$t/)
+	{
+		print ": 404 bad path\n";
+		$req->respond([404, 'not found', { 'Content-Type' => 'text/html' }, 'Bad Path']);
+		return;
+	}
+
 
 	if ( -e $file )
 	{
@@ -349,10 +369,14 @@ sub webRequest($httpd, $req)
 			},
 			$buf
 		]);
+		print ": 200 ok\n";
+		#$mu->record('web');
+		#$mu->dump();
 		return;
 	}
 	else
 	{
+		print ": 404 not found\n";
 		$req->respond([404, '', { 'Content-Type' => 'text/html' }, 'Sorry, file not found']);
 		return;
 	}

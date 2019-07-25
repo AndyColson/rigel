@@ -11,8 +11,8 @@ sub new($class)
 {
 	my $self = {modified => 0};
 	bless($self, $class);
-	die unless (-e 'bin/config.sqlite');
-	$self->{db} = DBI->connect('dbi:SQLite:dbname=bin/config.sqlite');
+	die unless (-e 'config.sqlite');
+	$self->{db} = DBI->connect('dbi:SQLite:dbname=config.sqlite');
 	$self->{app} = {};
 	$self->findPorts();
 

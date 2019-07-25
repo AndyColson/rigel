@@ -1,4 +1,4 @@
--- dbext:profile=sqlite:dbname=../stars.sqlite
+-- dbext:profile=sqlite:dbname=stars.sqlite
 
 create table catalog(
 	catid integer primary key,
@@ -148,6 +148,8 @@ inner join catalog on catalog.catid = lookup.catid
 where catalog.name = 'NAME' and upper(lookup.id) = 'NUNKI'
 
 select * from lookup where upper(lookup.id) = 'NUNKI'
+select * from lookup where upper(lookup.id) = 'POLARIS'
+select * from catalog where catid = 41
 
 explain query plan
 select star.*

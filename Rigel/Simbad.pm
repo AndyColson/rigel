@@ -34,7 +34,7 @@ sub opendb($path)
 	if ($path) {
 		$tmp = "$path/stars.sqlite";
 	} else {
-		$tmp = 'stars.sqlite';
+		$tmp = "$Bin/stars.sqlite";
 	}
 	if (! -r $tmp)
 	{
@@ -43,7 +43,7 @@ sub opendb($path)
 	}
 	my $db = DBI->connect("dbi:SQLite:dbname=$tmp");
 	$db->sqlite_enable_load_extension(1);
-	$tmp = "$Bin/bin/libsqlitefunctions";
+	$tmp = "$Bin/libsqlitefunctions";
 	print "Load: $tmp\n";
 	$db->sqlite_load_extension($tmp);
 	$db->do('pragma cache_size=-4096');
