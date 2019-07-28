@@ -107,11 +107,11 @@ i {
   padding: 3px;
 }
 
-.right {
+.east {
     transform: rotate(-45deg);
 }
 
-.left {
+.west {
     transform: rotate(135deg);
 }
 

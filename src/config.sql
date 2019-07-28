@@ -10,14 +10,12 @@ create table config(
 -- insert into config(app, key, value) values ('csimc', 'TTY', '/dev/ttyUSB0');
 insert into config(app, key, value) values ('csimc', 'HOST', '127.0.0.1');
 insert into config(app, key, value) values ('csimc', 'PORT', '7623');
-insert into config(app, key, value) values ('csimc', 'INIT0', 'basic.cmc find.cmc nodeHA.cmc lights.cmc');
+insert into config(app, key, value) values ('csimc', 'INIT0', 'basic.cmc find.cmc nodeHA.cmc');
 insert into config(app, key, value) values ('csimc', 'INIT1', 'basic.cmc find.cmc nodeDec.cmc');
+insert into config(app, key, value) values ('csimc', 'INIT2', 'basic.cmc find.cmc nodeFocus.cmc');
 
-insert into config(app, key, value) values ('home', 'DSTEP', '3608560');
-insert into config(app, key, value) values ('home', 'HSTEP', '4798121');
+insert into config(app, key, value) values ('home', 'ecnoderMax', '12976128');
 
--- from home.cfg
--- HSTEP        4798121
 
 -- from telescoped.cfg
 -- HESTEP		12976128		! raw encoder counts/rev

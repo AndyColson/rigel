@@ -16,22 +16,22 @@ telescoped.csi/tel.c 1383
 	mip->raw = raw;
 	mip->cpos = (2*PI) * mip->esign * draw / mip->estep;
 
+deg * (pi/180) = rad
+rad * (180/pi) = deg
 
-Lights:
-csi_w (lfd, "lights(%d);", i);
 
-
-track:
-
-csi_w "clock=0;"
-telescoped.csi/tel.c
-
+360 degree in encoder steps = 12976128
+1 degree = 36044.8 encoder steps
 
 Say Polaris is:
 J2000 2h 31m 50.97s or (37.95456067)
 and 90 degress to that is HIP 86681 A:
 J2000 17h 42m 38.42s or (265.659903685341)
 
+ra encoder zero = north
+apparent ra increases west
+apparent ra of 180 is south
+apparent ra of 270 is east
 
 Camera filters:
 slot1 = clear
