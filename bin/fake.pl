@@ -22,6 +22,9 @@ tcp_server(
 				print("socket error: $_[2]\n");
 				$_[0]->destroy;
 			},
+			on_eof => sub {
+				print "client disconnected\n";
+			},
 			on_read => \&decReader
 		);
 		$dec->push_read( chunk => 3, sub($handle, $data) {
