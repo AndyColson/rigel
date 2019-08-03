@@ -116,32 +116,28 @@ sub main
 		port => 9090,
 	);
 	$httpd->reg_cb(
-		error => sub { my($e) = @_; $term->print("httpd error: $e\n"); },
+		error => sub {
+			my($e) = @_;
+			$term->print("httpd error: $e\n");
+		},
 		request => \&webRequest
 	);
 	$term->print("web server on port 9090\n");
 
+	# if csimcd is already running, lets kill it and start
+	# over fresh.  Return true if fake.pl is running
+	my $testing = killCsimcd();
 
+	# only start daemon if we auto detected serial port connection
 	my $tmp = $cfg->get('csimc', 'TTY');
-	#$tmp = 1;
-	# only start daemon if we auto detected it
-	if ($tmp)
+	if ($tmp || $testing)
 	{
 		$term->print("connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n");
-		my $pid = findCsimcd();
-		#$pid = 1;
-		if (! $pid)
-		{
-			$term->print("loading csimc scripts...\n");
-			# -r reboot, -l load scripts.
-			# should start csimcd and load the *.cmc scripts.
-			# wont return untill everything is ready
-			system('./csimc -rl < /dev/null');
-		}
-		else
-		{
-			$term->print("csimcd is already running\n");
-		}
+		$term->print("loading csimc scripts...\n");
+		# -r reboot, -l load scripts.
+		# should start csimcd and load the *.cmc scripts.
+		# wont return untill everything is ready
+		system('./csimc -rl < /dev/null');
 
 		# each control (ra, dec, focus) gets its own connection
 		tcp_connect(
@@ -149,6 +145,7 @@ sub main
 			$cfg->get('csimc', 'PORT'),
 			sub {
 				my ($fh) = @_ or die "csimcd connect failed: $!";
+				#print "fh = ", $fh->{fh}, "\n";
 				$ra = new AnyEvent::Handle(
 					fh     => $fh,
 					on_error => sub {
@@ -222,7 +219,7 @@ sub main
 		);
 	}
 
-	my $tmp = $cfg->get('dome', 'TTY');
+	$tmp = $cfg->get('dome', 'TTY');
 	if ($tmp)
 	{
 		$domStatus = 'Connecting...';
@@ -425,17 +422,28 @@ sub webRequest($httpd, $req)
 
 sub raReader($handle)
 {
-	my $at = index($handle->{rbuf}, "\n");
-	return if ($at == -1);
-	my $line = substr($handle->{rbuf}, 0, $at, '');
-	$term->print("RA: ", $line, "\n");
+	state $buffer = '';
+	$buffer .= $handle->{rbuf};
+
+	$handle->{rbuf} = '';
+	my $at = CORE::index($buffer, "\n");
+	while ($at > -1)
+	{
+		my $line = substr($buffer, 0, $at+1, '');
+		$term->print("RA: ", $line);
+		$at = CORE::index($buffer, "\n");
+	}
 }
+
 sub decReader($handle)
 {
-	my $at = index($handle->{rbuf}, "\n");
-	return if ($at == -1);
-	my $line = substr($handle->{rbuf}, 0, $at, '');
-	$term->print("DEC: ", $line, "\n");
+	my $at = CORE::index($handle->{rbuf}, "\n");
+	while ($at > -1)
+	{
+		my $line = substr($handle->{rbuf}, 0, $at+1, '');
+		$term->print("DEC: ", $line);
+		$at = CORE::index($handle->{rbuf}, "\n");
+	}
 }
 
 sub readDomeSerial($handle)
@@ -588,18 +596,18 @@ sub startAlignment($handle)
 sub goHome($handle)
 {
 	$term->print("Home requested ...  I'll just fake it\n");
-	#$ra->push_write('findhom();');
+	#initHome();
 }
 
 sub slewWest($handle)
 {
-	$ra->push_write('etvel=-15000;');
+	$ra->push_write('etvel=-15000;\n');
 	$term->print("ok, going west\n");
 }
 
 sub slewEast($handle)
 {
-	$ra->push_write('etvel=15000;');
+	$ra->push_write("etvel=15000;\n");
 	$term->print("ok, going east\n");
 }
 
@@ -618,8 +626,8 @@ sub getDate($handle)
 
 sub allStop()
 {
-	$ra->push_write('stop();');
-	$dec->push_write('stop();');
+	$ra->push_write("\x03stop();\n");
+	$dec->push_write("\x03stop();\n");
 }
 
 sub processCmd($cmd, $length)
@@ -656,6 +664,14 @@ sub processCmd($cmd, $length)
 		{
 			moveMount($1, $2);
 		}
+		when ('home')
+		{
+			initHome();
+		}
+		when ('report')
+		{
+			$ra->push_write("stats();\n");
+		}
 		default
 		{
 			print("CMD: [$cmd]\n");
@@ -666,24 +682,25 @@ sub processCmd($cmd, $length)
 
 sub moveMount($dir, $amount)
 {
-	my $ex = $amount * $stepsPerDegree;
+	my $ex = int( $amount * $stepsPerDegree );
+	print "move [$ex]\n";
 	given ($dir)
 	{
 		when ('east')
 		{
-			$ra->push_write("etpos=epos-$ex;");
+			$ra->push_write("etpos=epos+$ex;\n");
 		}
 		when ('west')
 		{
-			$ra->push_write("etpos=epos+$ex;");
+			$ra->push_write("etpos=epos-$ex;\n");
 		}
 		when ('up')
 		{
-			$dec->push_write("etpos=epos+$ex;");
+			$dec->push_write("etpos=epos+$ex;\n");
 		}
 		when ('down')
 		{
-			$dec->push_write("etpos=epos-$ex;");
+			$dec->push_write("etpos=epos-$ex;\n");
 		}
 	}
 }
@@ -706,7 +723,11 @@ sub findStar($cat, $id)
 			units=> 'degrees'
 		);
 		$cc->telescope($telescope);
-		print $cc->status, "\n";
+		# print $cc->status, "\n";
+		print "Apparent  RA: ", $cc->ra_app( format => 'd'), " deg\n";
+		print "Apparent Dec: ", $cc->dec_app( format => 'd'), " deg\n";
+		print "  Hour angle: ", $cc->ha( format => "d"), " deg\n";
+		print "     Azimuth: ", $cc->az( format => 'd'), " deg\n";
 	}
 }
 
@@ -719,21 +740,34 @@ exit
 help
 status
 stop
+home
 find catalog id
 
 EOS
 }
 
-sub findCsimcd
+sub killCsimcd
 {
 	my $pt = Proc::ProcessTable->new();
-	my @tab;
 	for my $p ( @{$pt->table} )
 	{
 		if ($p->fname eq 'csimcd')
 		{
-			return $p->pid;
+			$p->kill('TERM');
+			return 0;
+		}
+		elsif ($p->cmdline->[1] =~ /fake.pl/)
+		{
+			return 1;
 		}
 	}
-	return undef;
+	return 0;
 }
+
+sub initHome()
+{
+	$ra->push_write("findhome(1);\n");
+	$dec->push_write("findhome(1);\n");
+}
+
+
