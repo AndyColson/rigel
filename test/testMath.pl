@@ -19,14 +19,19 @@ my $telescope = new Astro::Telescope(
 	Alt  => 246.888
 );
 
-my $x = Simbad->new();
-my $polaris = $x->findLocal('HIP', '80883');
-my $hip = $x->findLocal('HIP', '86681');
-#print Dumper($hip);
+my $simbad = Simbad->new();
+my $star = $simbad->findLocal('BMB', '1');
+
+if (! $star)
+{
+	die;
+}
+
+
 my $cc = new Astro::Coords(
-	name => "hip86681",
-	ra   => $polaris->{ra},
-	dec  => $polaris->{dec},
+	name => "test",
+	ra   => $star->{ra},
+	dec  => $star->{dec},
 	type => 'J2000',
 	units=> 'degrees'
 );
@@ -34,16 +39,18 @@ my $cc = new Astro::Coords(
 #$cc->usenow( 1 );
 #$cc->datetime_is_unsafe(1);
 $cc->telescope($telescope);
-print "-- Status:\n", $cc->status, "\n";
+#print "-- Status:\n", $cc->status, "\n";
 #print "usenow: ", $cc->usenow, "\n";
 
-print " Hour angle: ", $cc->ha( format => "h"), "\n";
-print " Hour angle: ", $cc->ha( format => "d"), "\n";
-print " Hour angle: ", $cc->ha( format => "s"), "\n";
-print "Apparent RA: ", $cc->ra_app( format => 'd'), "\n";
-print "Apparent RA: ", $cc->ra_app( format => 's'), "\n";
-print "    Azimuth: ", $cc->az( format => 'd'), "\n";
-print "    Azimuth: ", $cc->az, "\n";
+print " Hour angle: ", $cc->ha( format => "h"), " hours\n";
+print " Hour angle: ", $cc->ha( format => "d"), " degrees\n";
+print " Hour angle: ", $cc->ha( format => "s"), " h:m:s\n";
+print "Apparent RA: ", $cc->ra_app( format => 'd'), " degrees\n";
+print "Apparent RA: ", $cc->ra_app( format => 's'), " h:m:s\n";
+print "    Azimuth: ", $cc->az( format => 'd'), " degrees\n";
+print "    Azimuth: ", $cc->az( format => 's'), " h:m:s\n";
+print "        LST: ", $cc->_lst( format => "d"), " degrees\n";
+print "        LST: ", $cc->_lst->hours, " hours\n";
 
 =pod
 my ($ra, $dec) = $cc->radec();
