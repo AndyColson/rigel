@@ -18,11 +18,11 @@ use JSON::XS;
 use Astro::PAL;
 use Astro::Coords;
 use Astro::Telescope;
-use POSIX qw(strftime);
 use PDL;
 use PDL::Core::Dev;
 use Cwd 'abs_path';
 use Proc::ProcessTable;
+use DateTime;
 use lib "$Bin/..";
 use Rigel::Config;
 use Rigel::Stellarium;
@@ -73,15 +73,21 @@ my $tt = Text::Xslate->new(
 );
 
 my %lxCommands = (
-	':Aa#' => \&startAlignment,
-	':Ga#' => \&getTime,
-	':GC#' => \&getDate,
-	':hS#' => \&goHome,
-	':hF#' => \&goHome,
-	':hP#' => \&goHome,
-	':h?#' => \&homeStatus,
-	':Me#' => \&slewEast,
-	':Q#'  => \&allStop
+	':Aa#' => \&lxStartAlignment,
+	':Ga#' => \&lxGetTime12,
+	':GC#' => \&lxGetDate,
+	':Gc#' => \&lxGetDateFormat,
+	':GD#' => \&lxGetDec,
+	':GL#' => \&lxGetTime24,
+	':GR#' => \&lxGetRA,
+	':GS#' => \&lxGetSTime,
+	':GVN#' => \&lxGetName,
+	':hS#' => \&lxGoHome,
+	':hF#' => \&lxGoHome,
+	':hP#' => \&lxGoHome,
+	':h?#' => \&lxHomeStatus,
+	':Me#' => \&lxSlewEast,
+	':Q#'  => \&AllStop
 );
 my $telescope = new Astro::Telescope(
 	Name => 'Rigel',
@@ -102,7 +108,6 @@ exit 0;
 
 sub main
 {
-
 	if (-r '/dev/ttyS0')
 	{
 		$lx2 = Rigel::LX200->new( port => '/dev/ttyS0', recv => \&lxCommand );
@@ -466,31 +471,37 @@ sub readDomeSerial($handle)
 	{
 		given (substr($buf, 0, 1))
 		{
-			when ('T') {
+			when ('T')
+			{
 				$domStatus = 'turning...';
 				substr($buf, 0, 1, '');
 			}
-			when ('S') {
+			when ('S')
+			{
 				$domStatus = 'shutter...';
 				substr($buf, 0, 1, '');
 			}
-			when ('P') {
+			when ('P')
+			{
 				if ($buf =~ /^P(\d{4})/)
 				{
 					$domStatus = "Azm $1";
 					substr($buf, 0, 5, '');
 				}
-				else {
+				else
+				{
 					$again = 0;
 					# if we receive Pjnk1234 we'll collect till out of mem
-					if (length($buf) > 15) {
+					if (length($buf) > 15)
+					{
 						#bah..  buf is weird, kill it
 						$buf = '';
 					}
 				}
 			}
-			when ('V') {
-				my $at = index($buf, "\r\r");
+			when ('V')
+			{
+				my $at = CORE::index($buf, "\r\r");
 				if ($at > -1)
 				{
 					my $status = $csv->parse(substr($buf, 0, $at));
@@ -498,15 +509,18 @@ sub readDomeSerial($handle)
 					$domStatus = Dumper(\@columns);
 					$buf = substr($buf, $at+2);
 				}
-				else {
+				else
+				{
 					$again = 0;
-					if (length($buf) > 200) {
+					if (length($buf) > 200)
+					{
 						#something very wrong with this status, kill it
 						$buf = '';
 					}
 				}
 			}
-			default {
+			default
+			{
 				#toss it
 				substr($buf, 0, 1, '');
 			}
@@ -532,38 +546,11 @@ sub sendJson($req, $data, $cookie=0)
 	$req->respond([200, '', $headers, $buf]);
 }
 
-
-sub telescopeStatus
-{
-=pod
-
-	if (mip->haveenc)
-	{
-		double draw;
-		int raw;
-
-		/* just change by half-step if encoder changed by 1 */
-		raw = csi_rix (MIPSFD(mip), "=epos;");
-		draw = abs(raw - mip->raw)==1 ? (raw + mip->raw)/2.0 : raw;
-		mip->raw = raw;
-		mip->cpos = (2*PI) * mip->esign * draw / mip->estep;
-
-	}
-	else
-	{
-		mip->raw = csi_rix (MIPSFD(mip), "=mpos;");
-		mip->cpos = (2*PI) * mip->sign * mip->raw / mip->step;
-	}
-=cut
-}
-
 sub stCommand($coords)
 {
 	$term->print("Main stCommand\n");
 
 	$coords->telescope($telescope);
-	# $c->datetime( new Time::Piece() );
-	$coords->usenow( 1 );
 
 	$ra = $coords->ra(format => 'dec' );
 	$dec = $coords->dec(format => 'dec' );
@@ -579,49 +566,133 @@ sub lxCommand($cmd, $handle)
 {
 	my $f = $lxCommands{$cmd};
 	if ($f) {
-		$term->print("lxCommand: $cmd\n");
+		$term->print("lxCommand: [$cmd]\n");
 		$f->($handle);
 	} else {
-		$term->print("unknown lxCommand: $cmd\n");
+		$term->print("unknown lxCommand: [$cmd]\n");
 	}
 }
 
 
-sub startAlignment($handle)
+sub lxStartAlignment($handle)
 {
 	# not needed, return true
 	$handle->push_write('1');
 }
+sub lxHomeStatus($handle)
+{
+	$handle->push_write('1');  # home found
+}
 
-sub goHome($handle)
+sub lxGoHome($handle)
 {
 	$term->print("Home requested ...  I'll just fake it\n");
 	#initHome();
 }
 
-sub slewWest($handle)
+sub lxSlewWest($handle)
 {
 	$ra->push_write('etvel=-15000;\n');
 	$term->print("ok, going west\n");
 }
 
-sub slewEast($handle)
+sub lxSlewEast($handle)
 {
 	$ra->push_write("etvel=15000;\n");
 	$term->print("ok, going east\n");
 }
 
-sub getTime($handle)
+sub lxGetTime12($handle)
 {
-	my $buf = strftime '%H-%M-%S', localtime();
+	my $time = DateTime->now;
+	my $buf = $time->strftime('%I:%M:%S');
 	$buf .= '#';
 	$handle->push_write($buf);
 }
-sub getDate($handle)
+sub lxGetTime24($handle)
 {
-	my $buf = strftime '%m/%d/%y', localtime();
+	my $time = DateTime->now;
+	my $buf = $time->strftime('%H:%M:%S');
 	$buf .= '#';
 	$handle->push_write($buf);
+}
+sub lxGetDate($handle)
+{
+	my $time = DateTime->now;
+	my $buf = $time->strftime('%m/%d/%y');
+	$buf .= '#';
+	$handle->push_write($buf);
+}
+sub lxGetDateFormat($handle)
+{
+	$handle->push_write('12#');
+}
+
+# from: https://metacpan.org/pod/Geo::Coordinates::DecimalDegrees
+sub decimal2dms {
+    my ($decimal) = @_;
+
+    my $sign = $decimal <=> 0;
+    my $degrees = int($decimal);
+
+    # convert decimal part to minutes
+    my $dec_min = abs($decimal - $degrees) * 60;
+    my $minutes = int($dec_min);
+    my $seconds = ($dec_min - $minutes) * 60;
+
+    return ($degrees, $minutes, $seconds, $sign);
+}
+
+sub lxGetRA($handle)
+{
+	getStatus(sub{
+		my($data) = @_;
+    	my $x = new Astro::Coords::Angle( $data->{ra}, units => 'deg', range => '2PI' );
+		$x->str_ndp(0);
+		$handle->push_write("$x#");
+	});
+}
+
+sub lxGetDec($handle)
+{
+	getStatus(sub{
+		my($data) = @_;
+    	my $x = new Astro::Coords::Angle( $data->{dec}, units => 'deg', range => '2PI' );
+		$x->str_ndp(0);
+		$handle->push_write("$x#");
+	});
+}
+sub lxGetSTime($handle)
+{
+	my $time = DateTime->now( time_zone => 'UTC' );
+
+	# Get the longitude (in radians)
+	my $long = $telescope->long ;
+
+	# Seconds can be floating point.
+	my $sec = $time->sec;
+
+	my $lst = (Astro::PAL::ut2lst( $time->year, $time->mon,
+			$time->mday, $time->hour,
+			$time->min, $sec, $long))[0];
+
+	my $obj = new Astro::Coords::Angle::Hour( $lst, units => 'rad', range => '2PI');
+	$obj->str_ndp(0);
+
+	my $buf = $obj->in_format('s');
+	if ($handle)
+	{
+		$buf .= '#';
+		$handle->push_write($buf);
+	}
+	else
+	{
+		$term->print("Current Sidereal Time: ", $buf, "\n");
+	}
+}
+sub lxGetName($handle)
+{
+	$handle->push_write("Rigel#");
 }
 
 sub allStop()
@@ -654,6 +725,9 @@ sub processCmd($cmd, $length)
 			getStatus(sub{
 				my($data) = @_;
 				$term->print(Dumper($data));
+				my $x = new Astro::Coords::Angle( $data->{dec}, units => 'deg', range => '2PI');
+				$x->str_ndp(0);
+				$term->print("[$x]\n");
 			});
 		}
 		when (/^find\s+(\w+)\s+(\w+)/)
