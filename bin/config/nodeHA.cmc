@@ -1,7 +1,7 @@
 // HA axis input bit connections
 homebit = 0x1;
-nlimbit = 0x2;
-plimbit = 0x4;
+nlimit = 0x2;
+plimit = 0x4;
 
 olevel=(1<<0);
 
