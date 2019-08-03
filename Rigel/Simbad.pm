@@ -77,7 +77,7 @@ sub query($self, $id)
 {
 	my $t0 = [gettimeofday];
 	my $c = $self->{curl};
-	my $limit = "set limit 8000\n";
+	my $limit = "set limit 3000\n";
 	$c->setopt(CURLOPT_HTTPGET, 1);
 	#my $url = 'http://simbad.u-strasbg.fr/simbad/sim-script?script=' . $c->escape("output console=off script=off\n"
 	if (ref($id) eq 'ARRAY')
@@ -289,6 +289,13 @@ where catalog.name = ? and lookup.id = ?}
 		);
 		$q->execute($catalog, $id);
 		my $row = $q->fetchrow_hashref;
+		if (! $row)
+		{
+			my $result = $self->query("around $catalog $id radius=20m");
+			print "saved: $result->{saved} skipped: $result->{skipped} web: $result->{webq} db: $result->{saveStar}\n";
+			$q->execute($catalog, $id);
+			$row = $q->fetchrow_hashref;
+		}
 		$q = undef;
 		print "FindLocal: ", tv_interval($t0), "\n";
 		return $row;
