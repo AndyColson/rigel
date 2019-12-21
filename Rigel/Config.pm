@@ -7,6 +7,14 @@ use Device::SerialPort;
 use Udev::FFI;
 use Time::HiRes 'sleep';
 
+# This unit is not just config stuff, it will also
+# probe ports to try and find what thing is plugged
+# into what port.
+# There isnt really any need for a human to edit the
+# config, so its stored in a config.sqlite db.
+# The csimcd program will read from that same config.
+
+
 sub new($class)
 {
 	my $self = {modified => 0};
@@ -54,6 +62,8 @@ sub get($self, $app, $key)
 	return $value;
 }
 
+# open and probe ports and see if we
+# can figure out whats plugged in.
 sub findPorts($self)
 {
 	# blank it, assume auto detect works.
@@ -163,6 +173,8 @@ sub findPorts($self)
 	}
 }
 
+# usb interface to detect when something is
+# added or removed.
 sub checkMonitor($self)
 {
     my $device = $self->{monitor}->poll(0.1);

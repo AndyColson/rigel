@@ -48,16 +48,18 @@ inner join catalog on catalog.catid = lookup.catid
 select catalog, count(*)
 from v_star
 group by catalog
-order by 2
+order by 2 desc
 
 select catid, id, count(*)
 from lookup
 group by catid, id
 having count(*) > 1;
 
-select starid
+select *
 from lookup
 where catid = 1 and id = 'J00023184-7951217'
+
+select * from catalog order by name
 
 select ra, dec, count(*)
 from star
@@ -89,13 +91,12 @@ select count(distinct name) from catalog;
 select max(starid) from star
 select * from v_star limit 10
 
-select * from v_star
+select * from v_star where catalog = 'BMB'
+where
 where ra between 59.980 and 59.982
 where starid = 1478741
 
 select * from catalog where name = 'TYC';
-
-select * from lookup where catid = 14 order by id
 
 select sqrt(square(ra - 266.400214824826) + square(dec - -4.3972132075578)) as dist,
 v_star.*
@@ -121,6 +122,7 @@ select count(*) from star where dec between 70.1 and 70.2
 
 explain query plan
 select * from v_star where catalog = '7.39'
+select count(*) from v_star where catalog = 'TYC'
 
 select * from v_star where ra like '::err%'
 
@@ -139,7 +141,7 @@ select star.*
 from star
 inner join lookup on lookup.starid = star.starid
 inner join catalog on catalog.catid = lookup.catid
-where catalog.name = 'HD' and lookup.id = '899'
+where catalog.name = 'ASCC' and lookup.id = '1'
 
 select lookup.id, star.*
 from star
@@ -225,4 +227,13 @@ explain query plan
 SELECT id FROM demo_index
  WHERE minX>=-81.08 AND maxX<=-80.58
    AND minY>=35.00  AND maxY<=35.44;
+
+
+
+select *
+from v_star
+where catalog = '2MASS'
+--where catalog = 'UCAC4'
+limit 10
+
 

@@ -25,7 +25,6 @@ Text::CSV_XS
 Astro::PAL
 Astro::Coords
 Astro::FITS::CFITSIO
-Starlink::AST
 Udev::FFI
 Net::Curl
 Inline::C
@@ -35,6 +34,7 @@ Inline::CPP
 # Astro::FITS::Header  (will install Tk)
 # OpenGL
 # PDL
+# Starlink::AST (used?)
 
 for my $x (@list)
 {

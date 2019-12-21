@@ -30,6 +30,12 @@ use Rigel::LX200;
 use Rigel::Simbad;
 #use Memory::Usage;
 
+# The server is event based, read up on AnyEvent for details.
+# The program will listen on a bunch of different ports/sockets
+# and fire events when something interesting happens.
+# Look for things like on_read
+
+
 # path's are relative to the server.pl script, set it as
 # our cwd
 BEGIN { chdir($Bin); }
@@ -72,6 +78,8 @@ my $tt = Text::Xslate->new(
 	syntax => 'Metakolon'
 );
 
+# we will pretend to be an lx200 mount.
+# these are the command we receive and functions to call upon receipt
 my %lxCommands = (
 	':Aa#' => \&lxStartAlignment,
 	':Ga#' => \&lxGetTime12,
@@ -89,15 +97,24 @@ my %lxCommands = (
 	':Me#' => \&lxSlewEast,
 	':Q#'  => \&AllStop
 );
+
+# This is where the rigel telescope is located.
+# some of the Astro::Coords functions need it.
 my $telescope = new Astro::Telescope(
 	Name => 'Rigel',
 	Long => -91.500299 * DD2R,
 	Lat  => 41.889387 * DD2R,   #decimal degrees to radians
 	Alt  => 246.888  # metres
 );
+
+# Simbad is where we'll lookup star name
+# http://simbad.u-strasbg.fr/simbad
 my $simbad = Simbad->new();
+
+# also listen for Stellarium network commands.
 my $stSocket = new Rigel::Stellarium( recv => \&stCommand );
 
+# for debugging, also present a command prompt
 $term = AnyEvent::ReadLine::Gnu->new(
 	prompt => "rigel> ",
 	on_line => \&processCmd

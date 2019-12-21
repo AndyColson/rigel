@@ -9,11 +9,17 @@ use Astro::Coords;
 use Data::Dumper;
 use FindBin qw($Bin);
 
-sub new($class, $path='')
+# package to search for star's and return RA/Dec.
+# We query a local mirror of http://simbad.u-strasbg.fr/simbad
+# Also keeps a local cache in stars.sqlite.
+# libsqlitefunctions will be linked, it provies sqrt and square
+# which we use to order by distance
+
+sub new($class)
 {
 	my $obj = {
 		curl	=> Net::Curl::Easy->new(),
-		db		=> opendb($path),
+		db		=> opendb(),
 		@_
 	};
 	my $c = $obj->{curl};
@@ -28,14 +34,9 @@ sub new($class, $path='')
 	return bless $obj, $class;
 }
 
-sub opendb($path)
+sub opendb()
 {
-	my $tmp;
-	if ($path) {
-		$tmp = "$path/stars.sqlite";
-	} else {
-		$tmp = "$Bin/stars.sqlite";
-	}
+	my $tmp = "$Bin/stars.sqlite";
 	if (! -r $tmp)
 	{
 		print "Star database not found: $tmp\n";
@@ -260,6 +261,8 @@ sub findLocal($self, $catalog, $id)
 		my $by = 0.1;
 		my $ra = $id->ra(format => 'dec' );
 		my $dec = $id->dec(format => 'dec' );
+		# given a point, search for things near that
+		# point, order by distance, and return one record
 		my $q = $db->prepare(qq{select
 sqrt(square(ra - $ra) + square(dec - $dec)) as dist,
 star.*

@@ -19,9 +19,7 @@ define hex($v) {printf ("0x%02x\n", $v); }
 // report basic current values:
 define report()
 {
-	printf("%9d %8d %8d %8d %d %d %d\n", clock, mpos, mvel, epos,
-			!!(ilev&plimbit), !!(ilev&nlimbit), !!(ilev&homebit));
+	printf("%9d mpos:%8d mvel:%8d epos:%8d plim:%d nlim:%d home:%d\n", clock, mpos, mvel, epos,
+			!!(ilevel & plimbit), !!(ilevel & nlimbit), !!(ilevel & homebit));
 }
 
-# For RCS Only -- Do Not Edit
-# @(#) $RCSfile: basic.cmc,v $ $Date: 2002/01/20 06:08:56 $ $Revision: 1.3 $ $Name:  $

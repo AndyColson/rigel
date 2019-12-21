@@ -33,7 +33,7 @@ define goback($way, $bit)
 }
 
 /* move away from either limit */
-define nolim() 
+define nolim()
 {
 	mtpos = mpos;				// stop where we are
 	sync();						// wait until really stopped
@@ -125,37 +125,34 @@ define findhome($way) {
  * N.B. requires ipolar and plimbit or nlimbit (as appropriate) to be set up.
  */
 define findlim($way) {
-    printf ("1 Seeking limit\n");
+	printf ("1 Seeking limit\n");
 
-    // set $0 to target bit, and insure $way is +1 or -1
-    if ($way > 0) {
-	if (!plimbit) {
-	    printf ("-1 No plimbit\n");
-	    return;
+	// set $0 to target bit, and insure $way is +1 or -1
+	if ($way > 0) {
+		if (!plimbit) {
+			printf ("-1 No plimbit\n");
+			return;
+		}
+		$0 = plimbit;
+		$way = 1;
+	} else {
+		if (!nlimbit) {
+			printf ("-1 No nlimbit\n");
+			return;
+		}
+		$0 = nlimbit;
+		$way = -1;
 	}
-	$0 = plimbit;
-	$way = 1;
-    } else {
-	if (!nlimbit) {
-	    printf ("-1 No nlimbit\n");
-	    return;
-	}
-	$0 = nlimbit;
-	$way = -1;
-    }
 
-    /* back off if on limit already */
-    goboff (-$way, $0);
+	/* back off if on limit already */
+	goboff (-$way, $0);
 
-    /* go */
-    iedge = $0;				// arm latch
-    mtvel = $way*maxvel/2;		// go at modest speed in $way dir
-    while (!(iedge & $0));		// wait for encounter. sets etrig
-    goboff (-$way, $0);			// back off
-    mtvel = 0;				// nice stop
-    iedge = $0;				// reset
-    printf ("0 Found limit\n");
+	/* go */
+	iedge = $0;				// arm latch
+	mtvel = $way*maxvel/2;		// go at modest speed in $way dir
+	while (!(iedge & $0));		// wait for encounter. sets etrig
+	goboff (-$way, $0);			// back off
+	mtvel = 0;				// nice stop
+	iedge = $0;				// reset
+	printf ("0 Found limit\n");
 }
-
-# For RCS Only -- Do Not Edit
-# @(#) $RCSfile: find.cmc,v $ $Date: 2002/10/23 21:44:13 $ $Revision: 1.1 $ $Name:  $

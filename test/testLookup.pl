@@ -51,7 +51,7 @@ sub test
 
 
 
-my $x = Simbad->new('..');
+my $x = Simbad->new();
 importTyco();
 #find();
 #$x->query('coo 3:19 -21:45 radius=20m');
