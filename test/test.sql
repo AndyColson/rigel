@@ -1,4 +1,4 @@
--- dbext:profile=sqlite:dbname=stars.sqlite
+-- dbext:profile=sqlite:conn_parms=dbname=stars.sqlite
 
 create table catalog(
 	catid integer primary key,
@@ -50,14 +50,56 @@ from v_star
 group by catalog
 order by 2 desc
 
+select count(*) from (
 select catid, id, count(*)
 from lookup
 group by catid, id
-having count(*) > 1;
+having count(*) > 1
+)
+
+select catalog.catid, catalog.name, tmpx.id
+from catalog
+inner join (
+	select catid, id, count(*)
+	from lookup
+	group by catid, id
+	having count(*) > 1
+	limit 1
+) as tmpx on tmpx.catid = catalog.catid
+
+
+-- dup catalog names
+select name, count(*)
+from catalog
+group by name
+having count(*) > 1
+
 
 select *
 from lookup
-where catid = 1 and id = 'J00023184-7951217'
+where id = '4294-330-1';
+
+select distinct name from catalog order by name
+
+select *
+from lookup
+where catid = 1 and id = 'J00003704-3011547'
+
+select *
+from lookup
+where catid = 1 and id = 'J00001575-3010193'
+
+
+select * from v_star
+where catalog = '2MASS' and
+(id = 'J00001575-3010193' or id = 'J00003704-3011547')
+
+
+select * from v_star where starid in (
+	select starid
+	from lookup
+	where catid = 1 and id = 'J00051718-3011599'
+)
 
 select * from catalog order by name
 
@@ -68,7 +110,8 @@ having count(*) > 1
 
 select *
 from v_star
-where ra like '1.13377455%' and dec like '-64.179830%'
+where ra like '0.6325863047%' and dec like '-79.856042221%'
+
 
 select starid, catalog, id, count(*)
 from v_star
@@ -81,8 +124,8 @@ group by starid, catid, id
 having count(*) > 1;
 
 
-select * from v_star
-where starid in (341890, 344646, 2608076)
+select catalog, id from v_star where starid = 2207459
+in (341890, 344646, 2608076)
 
 select count(*) from lookup
 select count(*) from star
@@ -92,11 +135,22 @@ select max(starid) from star
 select * from v_star limit 10
 
 select * from v_star where catalog = 'BMB'
+
+select *
+from v_star
+where catalog = 'Gaia'
+limit 100
+
 where
 where ra between 59.980 and 59.982
 where starid = 1478741
 
 select * from catalog where name = 'TYC';
+
+select *
+from v_star
+where catalog = 'NGC'
+and id = '6820'
 
 select sqrt(square(ra - 266.400214824826) + square(dec - -4.3972132075578)) as dist,
 v_star.*
@@ -105,7 +159,6 @@ where ra between 266.400214824826 - 0.6 and 266.400214824826 + 0.6
 and dec between -4.3972132075578 - 0.6 and -4.3972132075578 + 0.6
 order by 1
 
-and catalog = 'HIP'
 
 PRAGMA compile_options;
 select (2-1)
@@ -235,5 +288,4 @@ from v_star
 where catalog = '2MASS'
 --where catalog = 'UCAC4'
 limit 10
-
 

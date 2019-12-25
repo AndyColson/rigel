@@ -199,7 +199,8 @@ sub saveStar($self, $inf, $result)
 			print "\ncatalog = [$catalog], id = [$id]\n";
 			die;
 		}
-		#print "cat = [$catalog] id = [$id]\n";
+		$id =~ s/\s{2,}/ /g;
+		#print "cat = [$catalog] id = [$id] ";
 		$findCat->execute($catalog);
 		my($catid) = $findCat->fetchrow_array;
 		if (! $catid)
@@ -207,17 +208,20 @@ sub saveStar($self, $inf, $result)
 			#print "adding catalog $catalog";
 			$insCat->execute($catalog);
 			$catid = $db->sqlite_last_insert_rowid();
-			#print " catid [$catid]\n";
 		}
+		#print " catid [$catid] ";
 
 		#see if star exists
 		$findStar->execute($catid, $id);
 		my($starid) = $findStar->fetchrow_array();
 		if ($starid) {
-			#print "star found\n";
+			#print " (skipped)\n";
 			$ccSkip++;
 			next;
 		}
+		#else {
+		#	print " (added)\n";
+		#}
 
 		# save it
 		$insStar->execute(@params);

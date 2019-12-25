@@ -52,7 +52,8 @@ sub test
 
 
 my $x = Simbad->new();
-importTyco();
+importNGC();
+#importTyco();
 #find();
 #$x->query('coo 3:19 -21:45 radius=20m');
 #$x->query('wildcard M [0-9]');
@@ -219,4 +220,28 @@ sub importTyco
 }
 
 
+
+sub importNGC
+{
+	# $SIG{INT} = sub { die "Caught a sigint $!, line number $.\n" };
+	my $t0 = [gettimeofday];
+	my $saved = 0;
+	my $skipped = 0;
+
+	for my $id (8..7840)
+	{
+		my $result = $x->query("around NGC $id radius=20m");
+		print "$id) ";
+		my $elaps = (tv_interval($t0) / 60);  # to minutes
+		printf "saved: %d skipped: %d web: %.2f db: %.2f minutes: %.2f\n", $result->{saved}, $result->{skipped}, $result->{webq},  $result->{saveStar}, $elaps;
+		$saved += $result->{saved};
+		$skipped += $result->{skipped};
+		#last if ($saved > 5000);
+		my $sleep = rand(6) + 3;
+		$elaps = $saved / $elaps;  # saved / minute
+		printf "ttlsaved: %d skipped: %d ins/min: %.2f sleep: %.2f\n", $saved, $skipped, $elaps, $sleep;
+		sleep($sleep);
+	}
+	print "\nFinished\n";
+}
 
