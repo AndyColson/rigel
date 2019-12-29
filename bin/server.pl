@@ -300,6 +300,8 @@ sub getStatus($sub)
 
 	my $wait = AnyEvent->condvar;
 
+	# begin1: this will set the procedure
+	# that will be called when the last async end fires
 	$wait->begin(sub{
 		$data->{ra} = $data->{raEncoder} / $stepsPerDegree;
 		$data->{dec} = $data->{decEncoder} / $stepsPerDegree;
@@ -308,26 +310,26 @@ sub getStatus($sub)
 	});
 
 	$ra->push_write("=epos;\n");
-	$wait->begin;
+	$wait->begin;  # begin2
 
 	$dec->push_write("=epos;\n");
-	$wait->begin;
+	$wait->begin; # begin3
 
 	$ra->push_read( line => sub {
 			my($handle, $line) = @_;
 			$term->print("get RA: [$line]\n");
 			$data->{raEncoder} = int($line);
-			$wait->end;
+			$wait->end; # end1
 		}
 	);
 	$dec->push_read( line => sub {
 			my($handle, $line) = @_;
 			$term->print("get DEC: [$line]\n");
 			$data->{decEncoder} = int($line);
-			$wait->end;
+			$wait->end;  #end2
 		}
 	);
-	$wait->end;
+	$wait->end;  #end3
 }
 
 sub webRequest($httpd, $req)

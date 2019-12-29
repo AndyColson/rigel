@@ -185,7 +185,9 @@ sub checkMonitor($self)
 	{
 		$self->set('app', $dev, 'lx200');
 		$self->set('app', 'lx200', $dev);
-	} else {
+	}
+	else # $device->get_action() eq 'remove'
+	{
 		$self->set('app', $dev, '');
 		$self->set('app', 'lx200', '');
 	}

@@ -37,12 +37,13 @@ create index lookup_star on lookup(starid);
 drop view v_star;
 
 create view v_star as
-select catalog.name as catalog, lookup.id, star.*
+select catalog.catid as catid, catalog.name as catalog, lookup.id, star.*
 from star
 inner join lookup on lookup.starid = star.starid
 inner join catalog on catalog.catid = lookup.catid
 
 
+pragma optimize;
 
 ----------------
 select catalog, count(*)
@@ -74,25 +75,99 @@ from catalog
 group by name
 having count(*) > 1
 
+select * from catalog
+where name like '% %'
+where catid = 4
+select * from catalog where catid = 8349
+select * from lookup where id = '1969'
+
+select * from lookup where catid = 4 and id not like '+%'
+update lookup set id = '+' || id where catid = 4 and id not like '+%'
 
 select *
-from lookup
-where id = '4294-330-1';
+from v_star
+where catalog = '[GPH2009]D634'
+and id = 'J18410694+0519224'
+and id = 'J18403957+0516114';
 
 select distinct name from catalog order by name
 
-select *
+select max(starid) from star
+
+select * from v_star where starid = 5245350;
+select * from catalog where name like '[GPH2009%'
+update lookup set catid = 1976, id = 'D634-03-01' where starid = 5245350
+delete from catalog where catid = 8670
+select * from lookup where starid = 5245350
+--- move cat's
+select * from catalog where name like '%+%'
+select * from v_star where catalog = 'CSI+05-18379'
+
+drop table tmpx
+create table tmpx(starid integer, catid integer, nn text);
+create index tmpx_pk on tmpx(starid, catid);
+delete from tmpx
+
+
+insert into tmpx
+select starid, lookup.catid, substr(name,3) || ' ' || id
 from lookup
-where catid = 1 and id = 'J00003704-3011547'
+inner join catalog on lookup.catid = catalog.catid
+where name like 'BD+%'
 
-select *
+select * from tmpx
+select count(*) from tmpx
+
+select * from catalog where name = 'BD'
+
+update catalog set name = 'ZTF' where catid = 5502
+
+update lookup set catid = 4, id = (select nn from tmpx where tmpx.starid = lookup.starid and tmpx.catid = lookup.catid)
+where exists(select nn from tmpx where tmpx.starid = lookup.starid and tmpx.catid = lookup.catid)
+
+--------------------
+-- --   null star name
+drop table tmpx
+create table tmpx(starid integer, catid integer, nn text, junk text);
+create index tmpx_pk on tmpx(starid, catid);
+delete from tmpx
+
+insert into tmpx
+select starid, lookup.catid, substr(name, 4), name
 from lookup
-where catid = 1 and id = 'J00001575-3010193'
+inner join catalog on lookup.catid = catalog.catid
+where id is null
+and name like 'PS1%'
+
+select * from tmpx
+delete from lookup where starid in (select starid from tmpx)
+delete from star where starid in (select starid from tmpx)
+
+select * from catalog where name = 'PS1'
+
+update catalog set name = 'ZTF' where catid = 5502
+
+update lookup set catid = 1886, id = (select nn from tmpx where tmpx.starid = lookup.starid and tmpx.catid = lookup.catid)
+where exists(select nn from tmpx where tmpx.starid = lookup.starid and tmpx.catid = lookup.catid)
+-------------------
 
 
-select * from v_star
-where catalog = '2MASS' and
-(id = 'J00001575-3010193' or id = 'J00003704-3011547')
+
+select * from catalog where name like 'CSI%'
+
+select *, substr(name, 4)
+from lookup
+inner join catalog on lookup.catid = catalog.catid
+where id is null
+and catalog.name not like 'OGLE%'
+and catalog.name not like 'ZTF%'
+and catalog.name not like 'DES%'
+and catalog.name not like 'SPIRITS%'
+
+
+
+select * from catalog where catid = 358
+where name like 'CSI%'
 
 
 select * from v_star where starid in (
@@ -212,7 +287,6 @@ from star
 inner join lookup on lookup.starid = star.starid
 where lookup.id = '899' and lookup.catid = (select catid from catalog where name = 'HD' )
 
-select * from star where starid = 591239
 
 -- === Delete star
 -- does a star have something in the lookup?

@@ -15,6 +15,8 @@ use FindBin qw($Bin);
 # libsqlitefunctions will be linked, it provies sqrt and square
 # which we use to order by distance
 
+my $debug = 0;
+
 sub new($class)
 {
 	my $obj = {
@@ -48,7 +50,7 @@ sub opendb()
 	print "Load: $tmp\n";
 	$db->sqlite_load_extension($tmp);
 	$db->do('pragma cache_size=-4096');
-	$db->do('pragma locking_mode=exclusive');
+	#$db->do('pragma locking_mode=exclusive');
 
 	return $db;
 }
@@ -121,19 +123,83 @@ sub query($self, $id)
 	my $x = $c->getinfo(CURLINFO_HTTP_CODE);
 	if ($x == 200)
 	{
-		#open(F, '>>', 'dump.star');
-		#print F $resp;
-		#close(F);
+		if ($debug >= 2)
+		{
+			print "Debug: saved to dump.star\n";
+			open(F, '>>', 'dump.star');
+			print F $resp;
+			close(F);
+		}
 		open(my $inf, '<', \$resp);
 		$self->saveStar($inf, $result);
 		close($inf);
 	} else {
-		#print "web result: $x\n$resp\n";
+		print "web result: $x\n$resp\n" if $debug;
 		$result->{'err'} = $x;
 		$result->{'descr'} = $resp;
 	}
 	return $result;
 	#print "Result Code: $x\n[$resp]\n";
+}
+
+sub splitName($id)
+{
+	# my ($catalog, $id) = split(/\-|\+|\s+/, $names[0], 2);
+	# my ($catalog, $newid) = split(/\s+/, $id, 2);
+	my($at, $catalog, $newid);
+	if ($id =~ /^\s*\[/)
+	{
+		# if first thing is a [, use  [] as category name
+		$at = index($id, ']');
+		if ($at == -1)
+		{
+			die "splitName found [ but not ]: $id at";
+		}
+		$at++;
+	}
+	elsif ($id =~ /\-|\+|\s/g)
+	{
+		$at = pos($id) - 1;
+		#print "split at $at\n";
+	}
+	else
+	{
+		#print "cat didnt split [$id]\n";
+		if (index($id, 'OGLE') == 0)
+		{
+			$at = 4;
+		}
+		elsif (index($id, 'ZTF') == 0)
+		{
+			$at = 3;
+		}
+		elsif (index($id, 'DES') == 0)
+		{
+			$at = 3;
+		}
+		elsif (index($id, 'SPIRITS') == 0)
+		{
+			$at = 7;
+		}
+		else
+		{
+			die "nothing found to split on [$id] at";
+		}
+	}
+	$catalog = substr($id, 0, $at);
+	for ($catalog)
+	{
+		s/^\s+//;
+		s/\s+$//;
+	}
+	$newid = substr($id, $at);
+	for ($newid)
+	{
+		s/^\s+//;
+		s/\s+$//;
+		s/\s{2,}/ /g;   #remove double+ spacing
+	}
+	return ($catalog, $newid);
 }
 
 
@@ -142,8 +208,10 @@ sub saveStar($self, $inf, $result)
 	my $t0 = [gettimeofday];
 	my $db = $self->{db};
 	return if (! $db);
-
-	$db->begin_work;
+	if (! $self->{intrans})
+	{
+		$db->begin_work;
+	}
 	my $insStar = $db->prepare_cached('insert into star(ra, dec, type, plx, pmra, pmdec, radial, redshift, spec, bmag, vmag) '
 		. ' values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) '
 	);
@@ -190,8 +258,9 @@ sub saveStar($self, $inf, $result)
 			next;
 		}
 
-
-		my ($catalog, $id) = split(/\-|\+|\s+/, $names[0], 2);
+		# This split needs to match the one blow!
+		#
+		my ($catalog, $id) = splitName($names[0]);
 		if (! $catalog)
 		{
 			print "got names, but no catalog:\nName = ";
@@ -199,29 +268,25 @@ sub saveStar($self, $inf, $result)
 			print "\ncatalog = [$catalog], id = [$id]\n";
 			die;
 		}
-		$id =~ s/\s{2,}/ /g;
-		#print "cat = [$catalog] id = [$id] ";
+		print "cat = [$catalog] id = [$id] " if $debug;
 		$findCat->execute($catalog);
 		my($catid) = $findCat->fetchrow_array;
 		if (! $catid)
 		{
-			#print "adding catalog $catalog";
+			print "  Adding catalog $catalog\n";
 			$insCat->execute($catalog);
 			$catid = $db->sqlite_last_insert_rowid();
 		}
-		#print " catid [$catid] ";
+		print " catid [$catid] " if $debug;
 
 		#see if star exists
 		$findStar->execute($catid, $id);
 		my($starid) = $findStar->fetchrow_array();
 		if ($starid) {
-			#print " (skipped)\n";
+			print " (skipped)\n" if $debug;
 			$ccSkip++;
 			next;
 		}
-		#else {
-		#	print " (added)\n";
-		#}
 
 		# save it
 		$insStar->execute(@params);
@@ -229,7 +294,7 @@ sub saveStar($self, $inf, $result)
 
 		for my $alt (@names)
 		{
-			my ($catalog, $id) = split(/\-|\+|\s+/, $alt, 2);
+			my ($catalog, $id) = splitName($alt);
 			$findCat->execute($catalog);
 			my($catid) = $findCat->fetchrow_array;
 			if (! $catid)
@@ -237,10 +302,9 @@ sub saveStar($self, $inf, $result)
 				$insCat->execute($catalog);
 				$catid = $db->sqlite_last_insert_rowid();
 			}
-			$id =~ s/\s{2,}/ /g;
 			$insLookup->execute($starid, $catid, $id);
 		}
-		#print "star saved\n";
+		print " (saved)\n" if $debug;
 		$ccSave++
 	}
 	$insStar->finish();
@@ -248,8 +312,10 @@ sub saveStar($self, $inf, $result)
 	$insCat->finish();
 	$insLookup->finish();
 	$findStar->finish();
-	$db->commit;
-	#print "Saved: $ccSave\nSkipped: $ccSkip\n";
+	if (! $self->{intrans})
+	{
+		$db->commit;
+	}
 	$result->{'saved'} = $ccSave;
 	$result->{'skipped'} = $ccSkip;
 	$result->{"saveStar"} = tv_interval ( $t0, [gettimeofday]);
