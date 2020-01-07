@@ -1,0 +1,1 @@
+The LX200 simulator is a python program that simulates the serial operation of the Meade LX200 telescope. It allows investigation of the interaction between the LX200 and various telescope control programs such as Stellarium.
