@@ -76,6 +76,8 @@ static char tracefn[256];       /* tracing file name, if tracefp */
 int
 main (int ac, char *av[])
 {
+	// set cwd to program dir.
+	// config.sqlite and csimcd are found in same spot
 	char * tmp = strdup(av[0]);
 	char * tmp2 = dirname(tmp);
 	chdir(tmp2);
@@ -261,11 +263,8 @@ daemonCheck()
 
     if (fd<0 && (!host || !strcmp(host,"localhost") || !strcmp(host,ipme)))
     {
-        //char buf[256];
         int i;
 
-        //sprintf (buf, "rund %s -i %d", dname, port);
-		//sprintf(buf, "%s/%s", getenv("TELHOME"), dname);
         if (system (dname) != 0)
         {
             fprintf (stderr, "Can not start %s\n", dname);

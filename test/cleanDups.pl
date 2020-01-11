@@ -53,6 +53,7 @@ my($ttlDups) = $db->selectrow_array(q{
 select count(*) from (
 select catid, id, count(*)
 from lookup
+where catid <> 78
 group by catid, id
 having count(*) > 1
 )});
@@ -64,6 +65,7 @@ from catalog
 inner join (
 	select catid, id, count(*)
 	from lookup
+	where catid <> 78
 	group by catid, id
 	having count(*) > 1
 	limit 1
@@ -72,6 +74,7 @@ inner join (
 
 my $r = $db->prepare(q{select starid from lookup where catid = ? and id = ?});
 my $loop = 0;
+my $last;
 while (1)
 {
 	$q->execute();
@@ -87,11 +90,18 @@ while (1)
 	my $cat = $row->[1];
 	my $id = $row->[2];
 
-	#$catid = 1;
-	#$cat = '2MASS';
-	#$id = 'J18403957+0516114';
+	#$catid = 78;
+	#$cat = '**';
+	#$id = 'H 151';
 
-	print "$loop) found $cat($catid) $id\n";
+	my $tmp = "$cat($catid) $id";
+	print "$loop) found $tmp\n";
+	if ($tmp eq $last)
+	{
+		print "already did $tmp once!\n";
+		die;
+	}
+	$last = $tmp;
 	$r->execute($catid, $id);
 	my $ttlS = 0;
 	my $ttlL = 0;
@@ -108,10 +118,12 @@ while (1)
 	if ($loop >= 100)
 	{
 		$loop = 0;
+		# catid 78 = **, which is dupped
 		my($done) = $db->selectrow_array(q{
 		select count(*) from (
 		select catid, id, count(*)
 		from lookup
+		where catid <> 78
 		group by catid, id
 		having count(*) > 1
 		)});

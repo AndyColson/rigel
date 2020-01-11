@@ -54,6 +54,7 @@ order by 2 desc
 select count(*) from (
 select catid, id, count(*)
 from lookup
+where catid <> 78
 group by catid, id
 having count(*) > 1
 )
@@ -78,17 +79,17 @@ having count(*) > 1
 select * from catalog
 where name like '% %'
 where catid = 4
-select * from catalog where catid = 8349
-select * from lookup where id = '1969'
+
+select count(*) from catalog where catid = 45
+delete  from lookup where catid = 45 and id = '50 2716'
 
 select * from lookup where catid = 4 and id not like '+%'
 update lookup set id = '+' || id where catid = 4 and id not like '+%'
 
 select *
 from v_star
-where catalog = '[GPH2009]D634'
-and id = 'J18410694+0519224'
-and id = 'J18403957+0516114';
+where catalog = '**'
+and id = 'H 151'
 
 select distinct name from catalog order by name
 
@@ -99,6 +100,7 @@ select * from catalog where name like '[GPH2009%'
 update lookup set catid = 1976, id = 'D634-03-01' where starid = 5245350
 delete from catalog where catid = 8670
 select * from lookup where starid = 5245350
+
 --- move cat's
 select * from catalog where name like '%+%'
 select * from v_star where catalog = 'CSI+05-18379'
@@ -166,10 +168,6 @@ and catalog.name not like 'SPIRITS%'
 
 
 
-select * from catalog where catid = 358
-where name like 'CSI%'
-
-
 select * from v_star where starid in (
 	select starid
 	from lookup
@@ -178,15 +176,21 @@ select * from v_star where starid in (
 
 select * from catalog order by name
 
-select ra, dec, count(*)
-from star
-group by ra, dec
-having count(*) > 1
+select round(0.6325863046, 4)
 
+select round(ra, 1) as ra, count(*)
+from star
+where ra between 0 and 10
+group by round(ra, 1)
+
+
+explain query plan
 select *
 from v_star
-where ra like '0.6325863047%' and dec like '-79.856042221%'
+where ra between 0.6325863046 and 0.6325863048
+and dec between -79.8560423   and -79.8560420
 
+where ra like '0.6325863047%' and dec like '-79.856042221%'
 
 select starid, catalog, id, count(*)
 from v_star
@@ -199,11 +203,9 @@ group by starid, catid, id
 having count(*) > 1;
 
 
-select catalog, id from v_star where starid = 2207459
-in (341890, 344646, 2608076)
-
 select count(*) from lookup
 select count(*) from star
+select count(*) from catalog;
 select count(distinct name) from catalog;
 
 select max(starid) from star
@@ -211,22 +213,16 @@ select * from v_star limit 10
 
 select * from v_star where catalog = 'BMB'
 
-select *
-from v_star
-where catalog = 'Gaia'
-limit 100
-
-where
-where ra between 59.980 and 59.982
-where starid = 1478741
 
 select * from catalog where name = 'TYC';
+select count(*) from lookup where catid = 14
 
 select *
 from v_star
 where catalog = 'NGC'
 and id = '6820'
 
+select load_extension('/usr/bin/libsqlitefunctions')
 select sqrt(square(ra - 266.400214824826) + square(dec - -4.3972132075578)) as dist,
 v_star.*
 from v_star
@@ -247,30 +243,9 @@ select * from star where dec - dec <> 0
 
 select count(*) from star where dec between 70.1 and 70.2
 
-
-explain query plan
-select * from v_star where catalog = '7.39'
-select count(*) from v_star where catalog = 'TYC'
-
 select * from v_star where ra like '::err%'
 
 explain query plan
-select star.*
-from star
-inner join lookup on lookup.starid = star.starid
-inner join catalog on catalog.catid = lookup.catid
-where catalog.name = '7.39'
-
-explain query plan
-select * from catalog where catalog.name = '7.39'
-
-explain query plan
-select star.*
-from star
-inner join lookup on lookup.starid = star.starid
-inner join catalog on catalog.catid = lookup.catid
-where catalog.name = 'ASCC' and lookup.id = '1'
-
 select lookup.id, star.*
 from star
 inner join lookup on lookup.starid = star.starid
@@ -281,11 +256,6 @@ select * from lookup where upper(lookup.id) = 'NUNKI'
 select * from lookup where upper(lookup.id) = 'POLARIS'
 select * from catalog where catid = 41
 
-explain query plan
-select star.*
-from star
-inner join lookup on lookup.starid = star.starid
-where lookup.id = '899' and lookup.catid = (select catid from catalog where name = 'HD' )
 
 
 -- === Delete star
@@ -310,56 +280,13 @@ delete from catalog where catid in (
   where lookup.catid is null
 )
 -- =============
+-- Delete a catalog
+select * from catalog where catid in (2579, 4853)
+select * from catalog where name = 'YZ';
+select count(*) from lookup where catid = 45
+delete from lookup where catid = 45
+delete from catalog where name = 'YZ';
 
-explain query plan
-select catid from catalog where name = '2MASS'
+--
 
-explain query plan
-select starid from lookup where id = '12' and  catid = 1
-
-
-
-drop table grid;
-delete from grid;
-CREATE VIRTUAL TABLE grid USING rtree(gridid, ramin, ramax, decmin, decmax);
-insert into grid values (1, 0, 5, 0, 5)
-insert into grid values (2, 5, 10, 5, 10)
-explain query plan
-select * from grid
-where 5.2 between ramin and ramax
-and 5 between decmin and decmax
-
-explain query plan
-select * from grid where ramin >= 3 and ramax <= 3
-
-
-drop table demo_index
-CREATE VIRTUAL TABLE demo_index USING rtree(
-   id,              -- Integer primary key
-   minX, maxX,      -- Minimum and maximum X coordinate
-   minY, maxY       -- Minimum and maximum Y coordinate
-);
-INSERT INTO demo_index VALUES(
-    1,                   -- Primary key -- SQLite.org headquarters
-    -80.7749, -80.7747,  -- Longitude range
-    35.3776, 35.3778     -- Latitude range
-);
-INSERT INTO demo_index VALUES(
-    2,                   -- NC 12th Congressional District in 2010
-    -81.0, -79.6,
-    35.0, 36.2
-);
-
-explain query plan
-SELECT id FROM demo_index
- WHERE minX>=-81.08 AND maxX<=-80.58
-   AND minY>=35.00  AND maxY<=35.44;
-
-
-
-select *
-from v_star
-where catalog = '2MASS'
---where catalog = 'UCAC4'
-limit 10
 

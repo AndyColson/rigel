@@ -1,3 +1,26 @@
+Rigel + QSI: 11.97' x 9.01'
+
+PI /dev/ttyS0
+laptop: screen /dev/ttyUSB0 115200
+
+pi3:
+/boot/config.txt enable_uart=1
+
+usb console:
+enable /etc/inittab, ttyS0 line
+enable /boot/cmdline.txt console=ttyS0,115200
+
+Find Pi:
+sudo nmap -sP 192.168.0.0/24 | awk '/^Nmap/{ipaddress=$NF}/B8:27:EB/{print ipaddress}'
+
+Pin-out:
+skip 2,
+black
+white
+green
+
+
+
 stop:
 csi_w "mtvel=0;"
 wait for "=mvel;" to be zero
@@ -32,6 +55,8 @@ ra encoder zero = north
 apparent ra increases west
 apparent ra of 180 is south
 apparent ra of 270 is east
+
+HIP 118268, W Pcs, vernal equinox
 
 Camera filters:
 slot1 = clear
@@ -75,18 +100,6 @@ ra limit: 14,156,229
 3028556
 
 6462284 + abs(-6998176) = 13460460
-
-
-
-PI /dev/ttyS0
-laptop: screen /dev/ttyUSB0 115200
-
-pi3:
-/boot/config.txt enable_uart=1
-
-usb console:
-enable /etc/inittab, ttyS0 line
-enable /boot/cmdline.txt console=ttyS0,115200
 
 
 

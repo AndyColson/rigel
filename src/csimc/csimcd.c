@@ -65,7 +65,7 @@ typedef struct
     OpenWhy why;            /* goal of connect */
 } CInfo;
 
-static void usage (char *me);
+static void usage ();
 static void initCfg(void);
 static int selectI(int n,fd_set *rp,fd_set *wp, fd_set *xp, struct timeval *tp);
 static size_t readI (int fd, void *buf, size_t n);
@@ -117,7 +117,7 @@ static char *tty = tty_def;     /* tty we actually use */
 static int port = CSIMCPORT;        /* default IP port */
 static char cfg_def[] = "csimc"; /* default config file */
 static char *cfg = cfg_def;     /* config file we actually use */
-static char *me = "csimcd";
+// static char *me = "csimcd";
 
 static fd_set clset;        /* each client fd. host addr = fd + MAXNA */
 static int maxclset = -1;   /* largest fd set in clset, -1 if empty */
@@ -149,6 +149,8 @@ static CInfo cinfo[NHOSTS]; /* connection info */
 int
 main (int ac, char *av[])
 {
+	// our config.sqlite is in the same directory
+	// make the app dir our cwd, so we can find it easy
 	char * tmp = strdup(av[0]);
 	char * tmp2 = dirname(tmp);
 	chdir(tmp2);
@@ -165,18 +167,14 @@ main (int ac, char *av[])
 					verbose++;
 					break;
 				default:
-					usage(me);
+					usage();
 			}
 	}
-
-	// for debugging
-	// verbose = 2;
-
 
 	/* shouldn't be any more args */
 	if (ac > 0)
 	{
-		usage(me);
+		usage();
 	}
 
 	if (daemon(1, 0) == -1)
@@ -185,9 +183,8 @@ main (int ac, char *av[])
 		exit(1);
 	}
 
-
-	/* set log now to proper place */
-	telOELog(me);
+	/* open syslog */
+	telOELog();
 
 	/* a few signal issues */
 	signal (SIGPIPE, SIG_IGN);
@@ -214,9 +211,9 @@ main (int ac, char *av[])
 }
 
 static void
-usage (char *me)
+usage ()
 {
-	fprintf (stderr, "%s: [options]\n", me);
+	fprintf (stderr, "csimcd: [options]\n");
 	fprintf (stderr, "Purpose: provide host app access to CSIMC network\n");
 	fprintf (stderr, "$Revision: 1.2 $\n");
 	fprintf (stderr, "Options:\n");

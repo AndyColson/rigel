@@ -100,7 +100,7 @@ telfixpath (char *newp, char *old)
  * return 0
  */
 int
-telOELog(char *progname)
+telOELog()
 {
 
 	openlog("csimcd", LOG_PID, LOG_DAEMON);
