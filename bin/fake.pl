@@ -49,6 +49,16 @@ sub decReader($handle)
 	{
 		$handle->push_write("12456\n");
 	}
+	elsif (index($handle->{rbuf}, 'findhome') > -1)
+	{
+		$handle->push_write("starting...\n");
+		sleep(2);
+		$handle->push_write("moving...\n");
+		sleep(2);
+		$handle->push_write("thinking...\n");
+		sleep(2);
+		$handle->push_write("done...\n");
+	}
 	$handle->{rbuf} = '';
 =pod
 	my $at = index($handle->{rbuf}, "\n");

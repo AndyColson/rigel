@@ -3,7 +3,7 @@
 use common::sense;
 use feature 'signatures';
 use AnyEvent;
-#use AnyEvent::Strict;
+use AnyEvent::Strict;
 use AnyEvent::Handle;
 use AnyEvent::SerialPort;
 use AnyEvent::HTTPD;
@@ -28,6 +28,7 @@ use Rigel::Config;
 use Rigel::Stellarium;
 use Rigel::LX200;
 use Rigel::Simbad;
+use Rigel::Csi;
 #use Memory::Usage;
 
 # The server is event based, read up on AnyEvent for details.
@@ -162,81 +163,43 @@ sub main
 		system('./csimc -rl < /dev/null');
 
 		# each control (ra, dec, focus) gets its own connection
-		tcp_connect(
-			$cfg->get('csimc', 'HOST'),
-			$cfg->get('csimc', 'PORT'),
-			sub {
-				my ($fh) = @_ or die "csimcd connect failed: $!";
-				#print "fh = ", $fh->{fh}, "\n";
-				$ra = new AnyEvent::Handle(
-					fh     => $fh,
-					on_error => sub {
-						$term->print("csimcd socket error: $_[2]\n");
-						$_[0]->destroy;
-					},
-					on_eof => sub {
-						$ra->destroy;
-					},
-					on_read => \&raReader
-				);
-				# addr=0, why=shell=0, zero
-				$ra->push_write( pack('ccc', 0, 0, 0) );
-				$ra->push_read( chunk => 1, sub($handle, $data) {
-						my $result = unpack('C', $data);
-						$term->print("RA connect, handle: $result\n");
-					}
-				);
+		$ra = Csi->new(
+			host => $cfg->get('csimc', 'HOST'),
+			port => $cfg->get('csimc', 'PORT'),
+			hwaddr => 0,
+			connect_event => sub($msg)
+			{
+				if ($msg) {
+					$term->print("RA: $msg\n");
+				} else {
+					$term->print("RA: ", $ra->{error}, "\n");
+				}
 			}
 		);
-
-		tcp_connect(
-			$cfg->get('csimc', 'HOST'),
-			$cfg->get('csimc', 'PORT'),
-			sub {
-				my ($fh) = @_ or die "csimcd connect failed: $!";
-				$dec = new AnyEvent::Handle(
-					fh     => $fh,
-					on_error => sub {
-						$term->print("csimcd socket error: $_[2]\n");
-						$_[0]->destroy;
-					},
-					on_eof => sub {
-						$dec->destroy;
-					},
-					on_read => \&decReader
-				);
-				# addr=1, why=shell=0, zero
-				$dec->push_write( pack('ccc', 1, 0, 0) );
-				$dec->push_read( chunk => 1, sub($handle, $data) {
-						my $result = unpack('C', $data);
-						$term->print("DEC connect, handle: $result\n");
-					}
-				);
+		$dec = Csi->new(
+			host => $cfg->get('csimc', 'HOST'),
+			port => $cfg->get('csimc', 'PORT'),
+			hwaddr => 1,
+			connect_event => sub($msg)
+			{
+				if ($msg) {
+					$term->print("DEC: $msg\n");
+				} else {
+					$term->print("DEC: ", $ra->{error}, "\n");
+				}
 			}
 		);
-
-		tcp_connect(
-			$cfg->get('csimc', 'HOST'),
-			$cfg->get('csimc', 'PORT'),
-			sub {
-				my ($fh) = @_ or die "csimcd connect failed: $!";
-				$focus = new AnyEvent::Handle(
-					fh     => $fh,
-					on_error => sub {
-						$term->print("csimcd socket error: $_[2]\n");
-						$_[0]->destroy;
-					},
-					on_eof => sub {
-						$focus->destroy;
-					}
-				);
-				# addr=2, why=shell=0, zero
-				$focus->push_write( pack('ccc', 2, 0, 0) );
-				$focus->push_read( chunk => 1, sub($handle, $data) {
-						my $result = unpack('C', $data);
-						$term->print("FOCUS connect, handle: $result\n");
-					}
-				);
+		$focus = Csi->new(
+			host => $cfg->get('csimc', 'HOST'),
+			port => $cfg->get('csimc', 'PORT'),
+			hwaddr => 2,
+			connect_event => sub($msg)
+			{
+				if ($msg) {
+					$term->print("Focus: $msg\n");
+				} else {
+					$term->print("Focus: ", $ra->{error}, "\n");
+				}
 			}
 		);
 	}
@@ -309,26 +272,20 @@ sub getStatus($sub)
 		$sub->($data)
 	});
 
-	$ra->push_write("=epos;\n");
 	$wait->begin;  # begin2
+	$ra->epos( sub($val) {
+		$term->print("get RA: [$val]\n");
+		$data->{raEncoder} = int($val);
+		$wait->end; # end1
+	});
 
-	$dec->push_write("=epos;\n");
 	$wait->begin; # begin3
+	$dec->epos( sub($val) {
+		$term->print("get DEC: [$val]\n");
+		$data->{decEncoder} = int($val);
+		$wait->end; # end1
+	});
 
-	$ra->push_read( line => sub {
-			my($handle, $line) = @_;
-			$term->print("get RA: [$line]\n");
-			$data->{raEncoder} = int($line);
-			$wait->end; # end1
-		}
-	);
-	$dec->push_read( line => sub {
-			my($handle, $line) = @_;
-			$term->print("get DEC: [$line]\n");
-			$data->{decEncoder} = int($line);
-			$wait->end;  #end2
-		}
-	);
 	$wait->end;  #end3
 }
 
@@ -571,11 +528,13 @@ sub stCommand($coords)
 
 	$coords->telescope($telescope);
 
+	my($ra, $dec, $star);
+
 	$ra = $coords->ra(format => 'dec' );
 	$dec = $coords->dec(format => 'dec' );
 	$term->print( "J2000     RA: $ra, Dec: $dec\n");
 	$term->print( "-- Database:\n");
-	my $star = $simbad->findLocal('coord', $coords);
+	$star = $simbad->findLocal('coord', $coords);
 	$term->print( Dumper($star));
 
 	$term->print( "-- Status:\n", $coords->status, "\n");
@@ -611,13 +570,13 @@ sub lxGoHome($handle)
 
 sub lxSlewWest($handle)
 {
-	$ra->push_write('etvel=-15000;\n');
+	$ra->etvel(-15000);
 	$term->print("ok, going west\n");
 }
 
 sub lxSlewEast($handle)
 {
-	$ra->push_write("etvel=15000;\n");
+	$ra->etvel(15000);
 	$term->print("ok, going east\n");
 }
 
@@ -716,8 +675,8 @@ sub lxGetName($handle)
 
 sub allStop()
 {
-	$ra->push_write("\x03stop();\n");
-	$dec->push_write("\x03stop();\n");
+	$ra->stop();
+	$dec->stop();
 }
 
 sub processCmd($cmd, $length)
@@ -763,7 +722,8 @@ sub processCmd($cmd, $length)
 		}
 		when ('report')
 		{
-			$ra->push_write("stats();\n");
+			$term->print("no report yet\n");
+			#$ra->push_write("stats();\n");
 		}
 		default
 		{
@@ -781,19 +741,19 @@ sub moveMount($dir, $amount)
 	{
 		when ('east')
 		{
-			$ra->push_write("etpos=epos+$ex;\n");
+			$ra->etpos_offset($ex);
 		}
 		when ('west')
 		{
-			$ra->push_write("etpos=epos-$ex;\n");
+			$ra->etpos_offset(-$ex);
 		}
 		when ('up')
 		{
-			$dec->push_write("etpos=epos+$ex;\n");
+			$dec->etpos_offset($ex);
 		}
 		when ('down')
 		{
-			$dec->push_write("etpos=epos-$ex;\n");
+			$dec->etpos_offset(-$ex);
 		}
 	}
 }
@@ -859,8 +819,8 @@ sub killCsimcd
 
 sub initHome()
 {
-	$ra->push_write("findhome(1);\n");
-	$dec->push_write("findhome(1);\n");
+	#$ra->push_write("findhome(1);\n");
+	#$dec->push_write("findhome(1);\n");
 }
 
 

@@ -17,8 +17,9 @@ use FindBin qw($Bin);
 
 my $debug = 0;
 
-sub new($class)
+sub new
 {
+	my $class  = shift;
 	my $obj = {
 		curl	=> Net::Curl::Easy->new(),
 		db		=> opendb(),
@@ -126,7 +127,7 @@ sub query($self, $id)
 		if ($debug >= 2)
 		{
 			print "Debug: saved to dump.star\n";
-			open(F, '>>', 'dump.star');
+			open(F, '>', 'dump.star');
 			print F $resp;
 			close(F);
 		}
@@ -258,8 +259,6 @@ sub saveStar($self, $inf, $result)
 			next;
 		}
 
-		# This split needs to match the one blow!
-		#
 		my ($catalog, $id) = splitName($names[0]);
 		if (! $catalog)
 		{
@@ -269,6 +268,11 @@ sub saveStar($self, $inf, $result)
 			die;
 		}
 		print "cat = [$catalog] id = [$id] " if $debug;
+		if ($catalog eq 'YZ')
+		{
+			# YZ catalog has dups, skip it
+			die 'YZ catalog cannot be primary';
+		}
 		$findCat->execute($catalog);
 		my($catid) = $findCat->fetchrow_array;
 		if (! $catid)
@@ -295,6 +299,7 @@ sub saveStar($self, $inf, $result)
 		for my $alt (@names)
 		{
 			my ($catalog, $id) = splitName($alt);
+			next if ($catalog eq 'YZ');
 			$findCat->execute($catalog);
 			my($catid) = $findCat->fetchrow_array;
 			if (! $catid)

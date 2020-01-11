@@ -12,9 +12,9 @@ use Astro::Coords;
 	my $lx = Rigel::LX200->new( port => '/dev/ttyUSB0', recv => sub($cmd, $handle) {} )
 =cut
 
-sub new {
-	my $this  = shift;
-	my $class = ref($this) || $this;
+sub new
+{
+	my $class = shift;
 	my $self  = {
 		fh => 0,
 		recv => 0,
