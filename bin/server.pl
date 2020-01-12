@@ -4,10 +4,10 @@ use common::sense;
 use feature 'signatures';
 use AnyEvent;
 use AnyEvent::Strict;
-use AnyEvent::Handle;
-use AnyEvent::SerialPort;
+#use AnyEvent::Handle;
+#use AnyEvent::SerialPort;
 use AnyEvent::HTTPD;
-use AnyEvent::Socket;
+#use AnyEvent::Socket;
 use AnyEvent::ReadLine::Gnu;
 use Text::Xslate qw(mark_raw);
 use FindBin qw($Bin);
@@ -29,6 +29,7 @@ use Rigel::Stellarium;
 use Rigel::LX200;
 use Rigel::Simbad;
 use Rigel::Csi;
+use Rigel::Dome;
 #use Memory::Usage;
 
 # The server is event based, read up on AnyEvent for details.
@@ -42,7 +43,7 @@ use Rigel::Csi;
 BEGIN { chdir($Bin); }
 
 use Inline CPP => config =>
-	libs => '-lqsiapi -lcfitsio -lftdi1 -lusb-1.0',
+	libs	=> '-lqsiapi -lcfitsio -lftdi1 -lusb-1.0',
 	ccflags => '-std=c++11 -I/usr/include/libftdi1 -I/usr/include/libusb-1.0',
 	INC           => &PDL_INCLUDE,
     TYPEMAPS      => &PDL_TYPEMAP,
@@ -54,7 +55,7 @@ use Inline 'CPP' => '../Rigel/camera.cpp';
 #my $mu = Memory::Usage->new();
 #$mu->record('startup');
 
-my ($domStatus, $camera, $cfg, $term);
+my ($camera, $cfg, $term);
 my ($httpd, $ra, $dec, $focus, $dome, $lx2);
 
 my $esteps = 12976128;
@@ -74,29 +75,29 @@ if (! -d '/tmp/cache')
 	mkdir('/tmp/cache') or die;
 }
 my $tt = Text::Xslate->new(
-	path => $cfg->get('app', 'template'),
-	cache_dir => '/tmp/cache',
-	syntax => 'Metakolon'
+	path		=> $cfg->get('app', 'template'),
+	cache_dir	=> '/tmp/cache',
+	syntax		=> 'Metakolon'
 );
 
 # we will pretend to be an lx200 mount.
 # these are the command we receive and functions to call upon receipt
 my %lxCommands = (
-	':Aa#' => \&lxStartAlignment,
-	':Ga#' => \&lxGetTime12,
-	':GC#' => \&lxGetDate,
-	':Gc#' => \&lxGetDateFormat,
-	':GD#' => \&lxGetDec,
-	':GL#' => \&lxGetTime24,
-	':GR#' => \&lxGetRA,
-	':GS#' => \&lxGetSTime,
-	':GVN#' => \&lxGetName,
-	':hS#' => \&lxGoHome,
-	':hF#' => \&lxGoHome,
-	':hP#' => \&lxGoHome,
-	':h?#' => \&lxHomeStatus,
-	':Me#' => \&lxSlewEast,
-	':Q#'  => \&AllStop
+	':Aa#'	=> \&lxStartAlignment,
+	':Ga#'	=> \&lxGetTime12,
+	':GC#'	=> \&lxGetDate,
+	':Gc#'	=> \&lxGetDateFormat,
+	':GD#'	=> \&lxGetDec,
+	':GL#'	=> \&lxGetTime24,
+	':GR#'	=> \&lxGetRA,
+	':GS#'	=> \&lxGetSTime,
+	':GVN#'	=> \&lxGetName,
+	':hS#'	=> \&lxGoHome,
+	':hF#'	=> \&lxGoHome,
+	':hP#'	=> \&lxGoHome,
+	':h?#'	=> \&lxHomeStatus,
+	':Me#'	=> \&lxSlewEast,
+	':Q#'	=> \&AllStop
 );
 
 # This is where the rigel telescope is located.
@@ -117,8 +118,8 @@ my $stSocket = new Rigel::Stellarium( recv => \&stCommand );
 
 # for debugging, also present a command prompt
 $term = AnyEvent::ReadLine::Gnu->new(
-	prompt => "rigel> ",
-	on_line => \&processCmd
+	prompt	=> "rigel> ",
+	on_line	=> \&processCmd
 );
 
 main();
@@ -137,6 +138,7 @@ sub main
 	$httpd = AnyEvent::HTTPD->new(
 		host => '::',
 		port => 9090,
+		request_timeout => 5
 	);
 	$httpd->reg_cb(
 		error => sub {
@@ -204,37 +206,7 @@ sub main
 		);
 	}
 
-	$tmp = $cfg->get('dome', 'TTY');
-	if ($tmp)
-	{
-		$domStatus = 'Connecting...';
-		$dome = 0;
-		eval {
-			$dome = AnyEvent::SerialPort->new(
-				serial_port => $tmp,   #defaults to 9600, 8n1
-				on_read => \&readDomeSerial,
-				on_error => sub {
-					my ($hdl, $fatal, $msg) = @_;
-					$term->print("serial error: $msg\n");
-					$hdl->destroy;
-				}
-			);
-		};
-		if ($@) {
-			$term->print("Connect to dome failed\n");
-			$term->print($@, "\n");
-			$domStatus = $@;
-			$dome = 0;
-		};
-
-		if ($dome) {
-			#get us a status update
-			$dome->push_write('GINF');
-		}
-	}
-	else {
-		$domStatus = 'Unplugged';
-	}
+	$dome = Dome->new(port => $cfg->get('dome', 'TTY'));
 
 	my $t;
 	$t = AnyEvent->timer (
@@ -425,86 +397,6 @@ sub decReader($handle)
 		$term->print("DEC: ", $line);
 		$at = CORE::index($handle->{rbuf}, "\n");
 	}
-}
-
-sub readDomeSerial($handle)
-{
-	state $buf = '';
-	state $csv = Text::CSV_XS->new ({ binary => 1, auto_diag => 1 });
-
-	$buf .= $handle->{rbuf};
-	$handle->{rbuf} = '';
-	exit if (! $buf);
-	$term->print("Start [$buf]\n");
-
-	# T, Pnnnnn  (0-32767) means its moving
-	# V.... \n\n is an Info Packet
-	# S, Pnnnn means shutter open/close
-
-	# dump stuff until we get to the start of something we recognize
-	my $again = 1;
-	while ($again)
-	{
-		given (substr($buf, 0, 1))
-		{
-			when ('T')
-			{
-				$domStatus = 'turning...';
-				substr($buf, 0, 1, '');
-			}
-			when ('S')
-			{
-				$domStatus = 'shutter...';
-				substr($buf, 0, 1, '');
-			}
-			when ('P')
-			{
-				if ($buf =~ /^P(\d{4})/)
-				{
-					$domStatus = "Azm $1";
-					substr($buf, 0, 5, '');
-				}
-				else
-				{
-					$again = 0;
-					# if we receive Pjnk1234 we'll collect till out of mem
-					if (length($buf) > 15)
-					{
-						#bah..  buf is weird, kill it
-						$buf = '';
-					}
-				}
-			}
-			when ('V')
-			{
-				my $at = CORE::index($buf, "\r\r");
-				if ($at > -1)
-				{
-					my $status = $csv->parse(substr($buf, 0, $at));
-					my @columns = $csv->fields();
-					$domStatus = Dumper(\@columns);
-					$buf = substr($buf, $at+2);
-				}
-				else
-				{
-					$again = 0;
-					if (length($buf) > 200)
-					{
-						#something very wrong with this status, kill it
-						$buf = '';
-					}
-				}
-			}
-			default
-			{
-				#toss it
-				substr($buf, 0, 1, '');
-			}
-		}
-		$term->print("Status [$domStatus]\n");
-		$again = 0 if (length($buf) == 0);
-	}
-	$term->print("End [$buf]\n");
 }
 
 

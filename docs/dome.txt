@@ -1,7 +1,7 @@
 
 9600 baud, 8 bit, 1 start, 1 stop, no parity.  Commands and data are normally sent without a carriage return (ASCII char 13) or Line Feed (ASCII 10) and there are no checksums in the commands or responses.
 
-GET INFO.  Form is GINF.  When received, the DDW will respond immediately with the following data record (see next page).  Data fields are comma delimited.  Movement commands always conclude with INF packet transmission.
+GINF:  GET INFO.  When received, the DDW will respond immediately with the following data record (see next page).  Data fields are comma delimited.  Movement commands always conclude with INF packet transmission.
 
 Note that actual azimuth in degrees is 359*(ADAZ/DTICKS).  Ticks are the number of counts produced by the movement sensors (roughly equal to one inch).
 
@@ -12,18 +12,27 @@ Slave status is the current setting of the SLAVE control bits in DDW.
 DSR Status shows the status of the Swingout DSR.  On Home-Dome/Pro-Dome, external entry products, the DSR must be closed before dome rotation can safely be done.  Because the DSR is on the dome, checking the DSR is only possible (in DDW) when the dome is HOME.  The specific design of DDW also requires that the shutter be fully open or closed for the DSR determination to be made.  Therefore, whenever the dome is to be rotated away from the HOME position and the shutter is in full open/close, the DSR status can be checked before movement is permitted.
 
 
-GOTO Azimuth.  Form is GXXX where XXX is the desired dome azimuth in degrees.  Leading zeros must be included, e.g., G073
+GXXX:  GOTO Azimuth. where XXX is the desired dome azimuth in degrees.  Leading zeros must be included, e.g., G073
+Version 2 systems will send a string 'Pnnnn' where nnnn is the current dome azimuth tick value.
+When the action is completed, DDW sends an INF packet.
 
-GOTO HOME.  Form is GHOM.  When received, the dome will rotate to its HOME position as defined by the shutter contacts.
+GHOM:  GOTO HOME.  When received, the dome will rotate to its HOME position as defined by the shutter contacts.
+ 'Pnnnn' responses are same as GOTO, and the operation is concluded with an INF packet.
 
-Train.  Form is GTRN.
 
-Shutter Open.  Form is GOPN.  When received, dome will return HOME, then open the shutter.  
-Shutter Close.  Form is GCLS.  When received, dome will return HOME, then close the shutter as above.
+GTRN:  Train.
+
+GOPN:  Shutter Open.  When received, dome will return HOME, then open the shutter.
+GCLS:  Shutter Close.  When received, dome will return HOME, then close the shutter as above.
+During shutter operation, an initial “O” or “C” is sent, then the character 'S' is transmitted approximately every 0.1-sec.  If the dome is not in the Home position, “Pnnnn” packets are sent during the rotation.  After both the rotation and shutter motion stop, an INF is sent
+
+GVLS: slave off
+
+
 
 All Stop.  When motion is occurring, any two or more characters are received within one second from the communications line is interpreted as an all-stop
 
-GTCK-This command switches the DDW into Fast Track mode. 
+GTCK-This command switches the DDW into Fast Track mode.
 
 
 
@@ -31,7 +40,7 @@ GTCK-This command switches the DDW into Fast Track mode.
 
 
 Content, Note
-V#, Denotes Version Data.  E.g., V1 
+V#, Denotes Version Data.  E.g., V1
 
 Dticks, DTICKS is dome circumference in ticks 0-32767.  Value is sent as a string of characters, e.g., 457.  Leading zeros not transmitted.
 

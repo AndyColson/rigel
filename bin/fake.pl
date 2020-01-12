@@ -51,13 +51,13 @@ sub decReader($handle)
 	}
 	elsif (index($handle->{rbuf}, 'findhome') > -1)
 	{
-		$handle->push_write("starting...\n");
+		$handle->push_write("1: starting...\n");
 		sleep(2);
 		$handle->push_write("moving...\n");
 		sleep(2);
-		$handle->push_write("thinking...\n");
+		$handle->push_write("1: thinking...\n");
 		sleep(2);
-		$handle->push_write("done...\n");
+		$handle->push_write("-1: error finished\n");
 	}
 	$handle->{rbuf} = '';
 =pod

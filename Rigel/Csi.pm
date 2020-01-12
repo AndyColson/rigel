@@ -13,8 +13,9 @@ sub new
 		host => '127.0.0.1',
 		port => 7623,
 		hwaddr => 0,
-		error => 0,
-		ready => 0,
+		error => '',
+		connected => 0,
+		homed => 0,
 		connect_event => sub($msg) {  },
 		@_,
 	};
@@ -23,9 +24,43 @@ sub new
 	return $self;
 }
 
-sub home($self)
+sub readHomeLine($self, $line, $cb)
 {
-	$self->{handle}->push_write("findhome;\n");
+	$cb->($line);
+	# the find.cmc scripts need to return a status
+	# integer as the first thing on the line:
+	# 0 = success
+	# -1 = error
+	# anything else is ignored
+	my($status) = $line =~ /^(-?\d+)/;
+
+	if ($status eq '0')
+	{
+		$self->{homed} = 1;
+		$self->{error} = '';
+		return;
+	}
+	if ($status eq '-1')
+	{
+		$self->{homed} = 0;
+		$self->{error} = $line;
+		return;
+	}
+
+	# if we arent done, schedule another read
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol) {$self->readHomeLine($line, $cb);}
+	);
+}
+
+sub home($self, $cb)
+{
+	$self->{homed} = 0;
+	$self->{error} = '';
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol) {$self->readHomeLine($line, $cb);}
+	);
+	$self->{handle}->push_write("findhome();\n");
 }
 
 sub etpos_offset($self, $offset)
@@ -35,7 +70,7 @@ sub etpos_offset($self, $offset)
 	}
 	else {
 		$self->{handle}->push_write("etpos=epos$offset;\n");
-	}}
+	}
 }
 
 sub etpos($self, $value)
@@ -64,6 +99,9 @@ sub epos($self, $cb)
 	$self->{handle}->push_write("=epos;\n");
 }
 
+# if no push_read events are on the stack,
+# then this reader will be called to handle the io.
+# we will just add it to the lines array
 sub reader($self, $handle)
 {
 	my $at = CORE::index($handle->{rbuf}, "\n");
@@ -78,6 +116,8 @@ sub reader($self, $handle)
 
 sub connect($self)
 {
+	$self->{connected} = 0;
+	$self->{error} = '';
 	tcp_connect(
 		$self->{host},
 		$self->{port},
@@ -99,19 +139,23 @@ sub connect($self)
 					$hdl->destroy;
 					$self->{handle} = 0;
 					$self->{fh} = 0;
+					$self->{connected} = 0;
 				},
 				on_eof		=> sub {
 					$self->{handle}->destroy;
 					$self->{handle} = 0;
 					$self->{fh} = 0;
+					$self->{connected} = 0;
 				},
 				on_read		=> sub { $self->reader(@_) }
 			);
 			# addr, why=shell=0, zero
 			$self->{handle}->push_write( pack('ccc', $self->{hwaddr}, 0, 0) );
 			$self->{handle}->push_read( chunk => 1, sub($handle, $data) {
+					# I dont think we'll ever use this handle
+					# we'll print it, but otherwise toss it
 					my $result = unpack('C', $data);
-					$self->{ready} = 1;
+					$self->{connected} = 1;
 					$self->{connect_event}->("connect handle: $result");
 				}
 			);
