@@ -12,6 +12,8 @@ use Simbad;
 
 $Astro::Coords::DEBUG = 1;
 
+
+
 my $telescope = new Astro::Telescope(
 	Name => 'Rigel',
 	Long => -91.498558 * DD2R,
@@ -19,14 +21,17 @@ my $telescope = new Astro::Telescope(
 	Alt  => 246.888
 );
 
+
 my $simbad = Simbad->new();
-my $star = $simbad->findLocal('BMB', '1');
+my $star = $simbad->findLocal('HIP', '116727');
 
 if (! $star)
 {
 	die;
 }
 
+#my $cc = new Astro::Coords( planet => "sun" );
+#my $cc = new Astro::Coords( planet => "saturn" );
 
 my $cc = new Astro::Coords(
 	name => "test",
@@ -35,6 +40,7 @@ my $cc = new Astro::Coords(
 	type => 'J2000',
 	units=> 'degrees'
 );
+
 
 #$cc->usenow( 1 );
 #$cc->datetime_is_unsafe(1);
@@ -45,12 +51,18 @@ $cc->telescope($telescope);
 print " Hour angle: ", $cc->ha( format => "h"), " hours\n";
 print " Hour angle: ", $cc->ha( format => "d"), " degrees\n";
 print " Hour angle: ", $cc->ha( format => "s"), " h:m:s\n";
+print "  Dec J2000: ", $cc->dec(format => "s"), " h:m:s\n";
+print "Apparent Dec:", $cc->dec_app(format => "s"), " h:m:s\n";
 print "Apparent RA: ", $cc->ra_app( format => 'd'), " degrees\n";
 print "Apparent RA: ", $cc->ra_app( format => 's'), " h:m:s\n";
 print "    Azimuth: ", $cc->az( format => 'd'), " degrees\n";
 print "    Azimuth: ", $cc->az( format => 's'), " h:m:s\n";
 print "        LST: ", $cc->_lst( format => "d"), " degrees\n";
 print "        LST: ", $cc->_lst->hours, " hours\n";
+print "\n";
+
+
+
 
 =pod
 my ($ra, $dec) = $cc->radec();

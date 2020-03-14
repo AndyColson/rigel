@@ -23,3 +23,31 @@ define report()
 			!!(ilevel & plimbit), !!(ilevel & nlimbit), !!(ilevel & homebit));
 }
 
+/* synchronous operation */
+define sync()
+{
+	while(working) {continue;}
+}
+
+
+// use timeout?
+// use evel (current encoder velocity)
+define monitor()
+{
+	printf("start: mpos=%d,mvel,epos,evel,mtpos=%d\n", mpos,mtpos);
+	pause(500);  // let it get going
+	while(working)
+	{
+		printf("%8d,%8d,%8d,%8d\n", mpos, mvel, epos, evel);
+		if (working && (0 == evel))
+		{
+			// we didnt move!
+			mtpos = mpos;			// stop trying
+			printf("error: we got stuck\n");
+			sync();
+			return;
+		}
+		pause(500);  // half a second, I hope
+	}
+	printf("done: %8d,%8d,%8d,%8d\n", mpos, mvel, epos, evel);
+}

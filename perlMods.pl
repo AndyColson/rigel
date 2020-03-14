@@ -19,6 +19,8 @@ AnyEvent
 AnyEvent::SerialPort
 AnyEvent::HTTPD
 AnyEvent::Socket
+IO::AIO
+AnyEvent::AIO
 Text::Xslate
 HTTP::XSCookies
 Text::CSV_XS

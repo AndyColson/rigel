@@ -5,13 +5,13 @@ use feature 'signatures';
 use AnyEvent;
 use AnyEvent::Socket;
 use AnyEvent::Handle;
+use Text::CSV_XS;
 
 sub new
 {
 	my $class  = shift;
 	my $self = {
-		host => '127.0.0.1',
-		port => 7623,
+		cfg => 0,
 		hwaddr => 0,
 		error => '',
 		connected => 0,
@@ -60,10 +60,65 @@ sub home($self, $cb)
 	$self->{handle}->push_read(
 		line => sub($handle, $line, $eol) {$self->readHomeLine($line, $cb);}
 	);
-	$self->{handle}->push_write("findhome();\n");
+	$self->{handle}->push_write("findhom(-1);\n");
 }
 
-sub etpos_offset($self, $offset)
+sub monitor($self, $line, $cb=undef)
+{
+	#mpos,mvel,epos,evel
+	#1234,
+	#error
+	#done
+
+	if ($line =~ /^(\d+),(\d+),(\d+),(\d+)/)
+	{
+		my $mpos = $1;
+		my $mvel = $2;
+		my $epos = $3;
+		my $evel = $4;
+
+		my $distance = sqrt( ($mpos - $self->{mtpos})**2 );
+		$self->{pct} = 1-($distance / $self->{tldist});
+		# schedule another read
+		$self->{handle}->push_read(
+			line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
+		);
+	}
+	elsif ($line =~ /^start:\s+mpos=(\d+).*?mtpos=(\d+)/)
+	{
+		my $mpos = $1;
+		my $mtpos = $2;
+		my $distance = sqrt( ($mpos - $mtpos)**2 );
+
+		$self->{working} = 1;
+		$self->{mtpos} = $mtpos;
+		$self->{ttldist} = $distance;
+		# schedule another read
+		$self->{handle}->push_read(
+			line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
+		);
+	}
+	elsif ($line =~ /^done:\s+(\d+),(\d+),(\d+),(\d+)/)
+	{
+		my $mpos = $1;
+		my $mvel = $2;
+		my $epos = $3;
+		my $evel = $4;
+		$self->{working} = 0;
+		$self->{status} 'ready';
+	}
+	elsif ($line =~ /^error/)
+	{
+		$self->{working} = 0;
+		$self->{status} = $line;
+	}
+
+	if ($cb) {
+		$cb->();
+	}
+}
+
+sub etpos_offset($self, $offset, $cb=undef)
 {
 	if ($offset > 0) {
 		$self->{handle}->push_write("etpos=epos+$offset;\n");
@@ -71,11 +126,20 @@ sub etpos_offset($self, $offset)
 	else {
 		$self->{handle}->push_write("etpos=epos$offset;\n");
 	}
+
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
+	);
+	$self->{handle}->push_write("monitor();\n");
 }
 
 sub etpos($self, $value)
 {
 	$self->{handle}->push_write("etpos=$value;\n");
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
+	);
+	$self->{handle}->push_write("monitor();\n");
 }
 
 sub stop($self)
@@ -86,6 +150,10 @@ sub stop($self)
 sub etvel($self, $value)
 {
 	$self->{handle}->push_write("etvel=$value;\n");
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
+	);
+	$self->{handle}->push_write("monitor();\n");
 }
 
 sub epos($self, $cb)
@@ -114,13 +182,37 @@ sub reader($self, $handle)
 	}
 }
 
+# save our current position to the config
+sub savePos($self)
+{
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol)
+		{
+			print "SavePos: [$line]\n";
+			$self->{cfg}->set(
+				'epos',
+				$self->{hwaddr},
+				$line
+			);
+		}
+	);
+	$self->{handle}->push_write("=epos;\n");
+}
+
+sub getSavedPos($self)
+{
+	return $self->{cfg}->get('epos', $self->{hwaddr});
+}
+
 sub connect($self)
 {
 	$self->{connected} = 0;
 	$self->{error} = '';
+	my $host = $self->{cfg}->get('csimc', 'HOST') // '127.0.0.1';
+	my $port = $self->{cfg}->get('csimc', 'PORT') // 7623;
 	tcp_connect(
-		$self->{host},
-		$self->{port},
+		$host,
+		$port,
 		sub {
 			$self->{fh} = shift;
 			if (! $self->{fh})

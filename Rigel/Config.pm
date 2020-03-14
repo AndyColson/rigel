@@ -21,7 +21,6 @@ sub new($class)
 	bless($self, $class);
 	die unless (-e 'config.sqlite');
 	$self->{db} = DBI->connect('dbi:SQLite:dbname=config.sqlite');
-	$self->{app} = {};
 	$self->findPorts();
 
 	my $udev = Udev::FFI->new() or
@@ -39,22 +38,15 @@ sub new($class)
 
 sub set($self, $app, $key, $value)
 {
-	if ($app eq 'app')
-	{
-		$self->{app}->{$key} = $value;
-	}
-	my $q = $self->{db}->prepare_cached('update config set value = $1 where app = $2 and key = $3');
-	$q->execute($value, $app, $key);
+	#my $q = $self->{db}->prepare_cached('update config set value = $1 where app = $2 and key = $3');
+	my $q = $self->{db}->prepare_cached('replace into config(app,key,value) values($1, $2, $3)');
+	$q->execute($app, $key, $value);
 	$q->finish;
 }
 
 sub get($self, $app, $key)
 {
 	my($q, $value);
-	if ($app eq 'app')
-	{
-		return $self->{app}->{$key};
-	}
 	$q = $self->{db}->prepare_cached('select value from config where app = $1 and key = $2');
 	$q->execute($app, $key);
 	($value) = $q->fetchrow_array;

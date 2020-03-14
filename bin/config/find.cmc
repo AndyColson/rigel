@@ -1,20 +1,6 @@
 /* Find Homes function.  Works off iedge and not necessarily ilevel. */
 /* Described in CSIMC manual Rev C/10311 */
 
-// Version 2.1
-// 10-08-02 STO -- Created 'homed' set/clear/test support to indicate need
-//                 for homing or not
-
-/* NOTE: Uses 'h' variable as flag to indicate that this motor has been homed */
-define setHomed() 	{ h=1; }
-define clearHomed() { h=0; }
-define isHomed() 	{ return h; }
-
-/* synchronous operation */
-define sync()
-{
-	while(working) {continue;}
-}
 
 /* go $way until the given bit triggers with opposite than its usual polarity */
 define goback($way, $bit)
@@ -51,7 +37,6 @@ define goboff ($way, $bit)
  * N.B. requires ipolar, homebit, plimbit and nlimbit to be set up.
 */
 define findhome($way) {
-	clearHomed();
 	$0 = homebit|plimbit|nlimbit;
 	if(!$0) {
 		printf("-1: no bits\n");
@@ -96,7 +81,6 @@ define findhome($way) {
 
 	// done!
 	epos = mpos = 0;					// set the new home
-	setHomed();
 	printf("0: done!\n");
 	report();
 }

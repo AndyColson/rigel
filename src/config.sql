@@ -7,14 +7,14 @@ create table config(
 );
 
 -- insert into config(app, key, value) values ('csimc', 'TTY', '/dev/ttyS0');
--- insert into config(app, key, value) values ('csimc', 'TTY', '/dev/ttyUSB0');
+insert into config(app, key, value) values ('csimc', 'TTY', '/dev/ttyUSB0');
 insert into config(app, key, value) values ('csimc', 'HOST', '127.0.0.1');
 insert into config(app, key, value) values ('csimc', 'PORT', '7623');
 insert into config(app, key, value) values ('csimc', 'INIT0', 'basic.cmc find.cmc nodeHA.cmc');
 insert into config(app, key, value) values ('csimc', 'INIT1', 'basic.cmc find.cmc nodeDec.cmc');
 insert into config(app, key, value) values ('csimc', 'INIT2', 'basic.cmc find.cmc nodeFocus.cmc');
 
-insert into config(app, key, value) values ('home', 'ecnoderMax', '12976128');
+-- insert into config(app, key, value) values ('home', 'ecnoderMax', '12976128');
 
 
 -- from telescoped.cfg

@@ -12,7 +12,8 @@ define test()
 	sync();
 	report();
 
-	//move off limit
+	$1 = -1;  //default dir
+	//unless we are at a limit
 	if((ilevel|iedge) & plimbit)// if at or past positive limit
 	{
 		printf("move off plimbit\n");

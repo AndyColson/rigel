@@ -13,7 +13,6 @@ use Text::Xslate qw(mark_raw);
 use FindBin qw($Bin);
 use Data::Dumper;
 use HTTP::XSCookies qw/bake_cookie crush_cookie/;
-use Text::CSV_XS;
 use JSON::XS;
 use Astro::PAL;
 use Astro::Coords;
@@ -23,6 +22,8 @@ use PDL::Core::Dev;
 use Cwd 'abs_path';
 use Proc::ProcessTable;
 use DateTime;
+use RPi::WiringPi;
+use RPi::Const qw(:all);
 use lib "$Bin/..";
 use Rigel::Config;
 use Rigel::Stellarium;
@@ -54,6 +55,8 @@ use Inline 'CPP' => '../Rigel/camera.cpp';
 
 #my $mu = Memory::Usage->new();
 #$mu->record('startup');
+
+my $pi = RPi::WiringPi->new;
 
 my ($camera, $cfg, $term);
 my ($httpd, $ra, $dec, $focus, $dome, $lx2);
@@ -91,7 +94,8 @@ my %lxCommands = (
 	':GL#'	=> \&lxGetTime24,
 	':GR#'	=> \&lxGetRA,
 	':GS#'	=> \&lxGetSTime,
-	':GVN#'	=> \&lxGetName,
+	':GVP#'	=> \&lxGetName,
+	':GZ#'	=> \&lxGetAzimuth,
 	':hS#'	=> \&lxGoHome,
 	':hF#'	=> \&lxGoHome,
 	':hP#'	=> \&lxGoHome,
@@ -166,34 +170,35 @@ sub main
 
 		# each control (ra, dec, focus) gets its own connection
 		$ra = Csi->new(
-			host => $cfg->get('csimc', 'HOST'),
-			port => $cfg->get('csimc', 'PORT'),
+			cfg => $cfg,
 			hwaddr => 0,
 			connect_event => sub($msg)
 			{
 				if ($msg) {
 					$term->print("RA: $msg\n");
+					my $st = $ra->getSavedPos();
+					$term->print("RA saved pos: $st\n");
 				} else {
 					$term->print("RA: ", $ra->{error}, "\n");
 				}
 			}
 		);
 		$dec = Csi->new(
-			host => $cfg->get('csimc', 'HOST'),
-			port => $cfg->get('csimc', 'PORT'),
+			cfg => $cfg,
 			hwaddr => 1,
 			connect_event => sub($msg)
 			{
 				if ($msg) {
 					$term->print("DEC: $msg\n");
+					my $st = $dec->getSavedPos();
+					$term->print("DEC saved pos: $st\n");
 				} else {
 					$term->print("DEC: ", $ra->{error}, "\n");
 				}
 			}
 		);
 		$focus = Csi->new(
-			host => $cfg->get('csimc', 'HOST'),
-			port => $cfg->get('csimc', 'PORT'),
+			cfg => $cfg,
 			hwaddr => 2,
 			connect_event => sub($msg)
 			{
@@ -209,7 +214,7 @@ sub main
 	$dome = Dome->new(port => $cfg->get('dome', 'TTY'));
 
 	my $t;
-	$t = AnyEvent->timer (
+	$t = AnyEvent->timer(
 		after => 3,
 		interval => 3,
 		cb => sub {
@@ -218,6 +223,15 @@ sub main
 			{
 				# usb add/removed
 			}
+		}
+	);
+
+	my $t2;
+	$t2 = AnyEvent->signal(
+		signal => "INT",
+		cb => sub {
+			$term->print("SIGINT!  Stopping all movement\n");
+			allStop();
 		}
 	);
 
@@ -513,6 +527,14 @@ sub decimal2dms {
     return ($degrees, $minutes, $seconds, $sign);
 }
 
+sub lxGetAzimuth($handle)
+{
+	getStatus(sub($data){
+    	my $x = new Astro::Coords::Angle( $data->{ra}, units => 'deg', range => '2PI' );
+		$x->str_ndp(0);
+		$handle->push_write("$x#");
+	});
+}
 sub lxGetRA($handle)
 {
 	getStatus(sub{
@@ -569,6 +591,7 @@ sub allStop()
 {
 	$ra->stop();
 	$dec->stop();
+	$focus->stop();
 }
 
 sub processCmd($cmd, $length)
@@ -617,12 +640,40 @@ sub processCmd($cmd, $length)
 			$term->print("no report yet\n");
 			#$ra->push_write("stats();\n");
 		}
+		when ('poweron')
+		{
+			my $p = $pi->pin(17);
+			$p->mode(OUTPUT);
+			$p->write(LOW);
+		}
+		when ('poweroff')
+		{
+			my $p = $pi->pin(17);
+			$p->mode(OUTPUT);
+			$p->write(HIGH);
+		}
 		default
 		{
 			print("CMD: [$cmd]\n");
 		}
 	}
 	$term->show;
+}
+
+sub monitorRa()
+{
+	state $timer = 0;
+
+	exit if ($timer);  # its already monitoring
+
+	$timer = AnyEvent->timer(
+		after => 1,
+		interval => 1,
+		cb => sub {
+
+		}
+	);
+
 }
 
 sub moveMount($dir, $amount)
@@ -634,18 +685,22 @@ sub moveMount($dir, $amount)
 		when ('east')
 		{
 			$ra->etpos_offset($ex);
+			monitorRa();
 		}
 		when ('west')
 		{
 			$ra->etpos_offset(-$ex);
+			monitorRa();
 		}
 		when ('up')
 		{
 			$dec->etpos_offset($ex);
+			monitorDec();
 		}
 		when ('down')
 		{
 			$dec->etpos_offset(-$ex);
+			monitorDec();
 		}
 	}
 }
@@ -665,9 +720,9 @@ sub findStar($cat, $id)
 			ra   => $star->{ra},
 			dec  => $star->{dec},
 			type => 'J2000',
-			units=> 'degrees'
+			units=> 'degrees',
+			tel => $telescope
 		);
-		$cc->telescope($telescope);
 		# print $cc->status, "\n";
 		print "Apparent  RA: ", $cc->ra_app( format => 'd'), " deg\n";
 		print "Apparent Dec: ", $cc->dec_app( format => 'd'), " deg\n";
@@ -687,6 +742,12 @@ status
 stop
 home
 find catalog id
+go up x
+go down x
+go east x
+go west x
+poweron
+poweroff
 
 EOS
 }
