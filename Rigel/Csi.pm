@@ -105,7 +105,7 @@ sub monitor($self, $line, $cb=undef)
 		my $epos = $3;
 		my $evel = $4;
 		$self->{working} = 0;
-		$self->{status} 'ready';
+		$self->{status} = 'ready';
 	}
 	elsif ($line =~ /^error/)
 	{
@@ -133,7 +133,7 @@ sub etpos_offset($self, $offset, $cb=undef)
 	$self->{handle}->push_write("monitor();\n");
 }
 
-sub etpos($self, $value)
+sub etpos($self, $value, $cb=undef)
 {
 	$self->{handle}->push_write("etpos=$value;\n");
 	$self->{handle}->push_read(
@@ -147,7 +147,7 @@ sub stop($self)
 	$self->{handle}->push_write("\x03stop();\n");
 }
 
-sub etvel($self, $value)
+sub etvel($self, $value, $cb=undef)
 {
 	$self->{handle}->push_write("etvel=$value;\n");
 	$self->{handle}->push_read(
