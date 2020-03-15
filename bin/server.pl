@@ -133,7 +133,6 @@ sub initCsi
 
 	$dome->connect($cfg->get('dome', 'TTY'));
 
-	print "Looking for camera...\n";
 	$camera = new Camera();
 	print($camera->getInfo(), "\n");
 
@@ -674,20 +673,33 @@ sub processCmd($cmd, $length)
 		{
 			if (isPowerOn())
 			{
-				$ra->savePos();
-				$dec->savePos();
-				$focus->savePos();
-				$ra->disconnect();
-				$dec->disconnect();
-				$focus->disconnect();
+				my $wait = AnyEvent->condvar;
+				$wait->begin(sub{
+					$ra->disconnect();
+					$dec->disconnect();
+					$focus->disconnect();
+					killCsimcd();
+					$cfg->clear();
+					$ra = 0;
+					$dec = 0;
+					$focus = 0;
+					$p17->write(HIGH);
+					print "power off\n";
+				});
+				print "saving...\n";
+
+				$wait->begin();
+				$ra->savePos( sub{$wait->end;} );
+
+				$wait->begin();
+				$dec->savePos( sub{$wait->end;} );
+
+				$wait->begin();
+				$focus->savePos( sub{$wait->end;} );
+
 				$camera = 0;
 				$dome->disconnect();
-				killCsimcd();
-				$cfg->clear();
-				$ra = 0;
-				$dec = 0;
-				$focus = 0;
-				$p17->write(HIGH);
+				$wait->end;
 			}
 			else
 			{

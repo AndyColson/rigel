@@ -183,7 +183,7 @@ sub reader($self, $handle)
 }
 
 # save our current position to the config
-sub savePos($self)
+sub savePos($self, $cb)
 {
 	$self->{handle}->push_read(
 		line => sub($handle, $line, $eol)
@@ -194,6 +194,7 @@ sub savePos($self)
 				$self->{hwaddr},
 				$line
 			);
+			$cb->();
 		}
 	);
 	$self->{handle}->push_write("=epos;\n");
