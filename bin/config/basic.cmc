@@ -36,11 +36,10 @@ define monitor()
 {
 	printf("start: mpos=%d,mvel,epos,evel,mtpos=%d\n", mpos,mtpos);
 	pause(500);  // let it get going
-	$0 = sign(evel);
 	while(working)
 	{
 		printf("%8d,%8d,%8d,%8d\n", mpos, mvel, epos, evel);
-		if (working && (sign(evel) != $0))
+		if (working && (0 == evel))
 		{
 			// we didnt move!
 			mtpos = mpos;			// stop trying

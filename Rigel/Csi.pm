@@ -204,6 +204,16 @@ sub getSavedPos($self)
 	return $self->{cfg}->get('epos', $self->{hwaddr});
 }
 
+sub disconnect($self)
+{
+	$self->{handle}->destroy();
+	$self->{handle} = 0;
+	$self->{fh} = 0;
+	$self->{connected} = 0;
+	$self->{cfg} = 0;
+}
+
+
 sub connect($self)
 {
 	$self->{connected} = 0;

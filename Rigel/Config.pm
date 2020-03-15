@@ -17,11 +17,12 @@ use Time::HiRes 'sleep';
 
 sub new($class)
 {
-	my $self = {modified => 0};
+	die "config.sqlite not found" unless (-e 'config.sqlite');
+	my $self = {
+		modified => 0,
+		db => DBI->connect('dbi:SQLite:dbname=config.sqlite')
+	};
 	bless($self, $class);
-	die unless (-e 'config.sqlite');
-	$self->{db} = DBI->connect('dbi:SQLite:dbname=config.sqlite');
-	$self->findPorts();
 
 	my $udev = Udev::FFI->new() or
 		die "Can't create Udev::FFI object: $@";
@@ -33,6 +34,8 @@ sub new($class)
 	$monitor->start();
 	$self->{udev} = $udev;
 	$self->{monitor} = $monitor;
+	$self->clear();
+
 	return $self;
 }
 
@@ -54,14 +57,18 @@ sub get($self, $app, $key)
 	return $value;
 }
 
-# open and probe ports and see if we
-# can figure out whats plugged in.
-sub findPorts($self)
+sub clear($self)
 {
 	# blank it, assume auto detect works.
 	$self->set('csimc', 'TTY', '');
 	$self->set('dome', 'TTY', '');
+}
 
+# open and probe ports and see if we
+# can figure out whats plugged in.
+sub findPorts($self)
+{
+	$self->clear();
 	my @list = glob('/dev/ttyUSB*');
 	for my $dev (@list)
 	{

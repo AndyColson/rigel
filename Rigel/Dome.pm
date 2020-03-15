@@ -19,20 +19,13 @@ sub new
 	my $class  = shift;
 	my $self = {
 		port => '',
-		status => '',
+		status => 'not connected',
 		connected => 0,
 		connect_event => sub() {  },
+		handle => 0,
 		@_,
 	};
 	bless($self, $class);
-	if ($self->{port})
-	{
-		$self->connect();
-	}
-	else
-	{
-		$self->{status} = 'Not connected';
-	}
 	return $self;
 }
 
@@ -131,10 +124,21 @@ sub reader($self, $handle)
 	print("End [$buf]\n");
 }
 
-
-sub connect($self)
+sub disconnect($self)
 {
+	$self->{port} => 0;
 	$self->{connected} = 0;
+	$self->{handle} = 0;
+	$self->{status} = 'not connected';
+}
+
+sub connect($self, $port)
+{
+	$self->{port} => $port;
+	$self->{connected} = 0;
+	$self->{handle} = 0;
+	return unless $port;
+
 	$self->{status} = 'connecting...';
 	eval {
 		$self->{handle} = AnyEvent::SerialPort->new(
@@ -153,7 +157,7 @@ sub connect($self)
 		);
 	};
 	if ($@) {
-		print "failed: $@\n";
+		print "dome connect failed: $@\n";
 		$self->{status} = "connect failed: $@";
 		$self->{handle} = 0;
 	}

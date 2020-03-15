@@ -57,21 +57,16 @@ use Inline 'CPP' => '../Rigel/camera.cpp';
 #$mu->record('startup');
 
 my $pi = RPi::WiringPi->new;
+my $p17 = $pi->pin(17);
+$p17->mode(OUTPUT);
 
-my ($camera, $cfg, $term);
-my ($httpd, $ra, $dec, $focus, $dome, $lx2);
+my ($camera, $httpd, $ra, $dec, $focus, $dome, $lx2);
 
 my $esteps = 12976128;
 my $stepsPerDegree = $esteps / 360;
 
-# the config will open usb ports and autodetect
-# whats plugged in
-$cfg = Rigel::Config->new();
+my $cfg = Rigel::Config->new();
 $cfg->set('app', 'template', abs_path('../template'));
-
-$camera = new Camera();
-print($camera->getInfo(), "\n");
-
 
 if (! -d '/tmp/cache')
 {
@@ -121,7 +116,7 @@ my $simbad = Simbad->new();
 my $stSocket = new Rigel::Stellarium( recv => \&stCommand );
 
 # for debugging, also present a command prompt
-$term = AnyEvent::ReadLine::Gnu->new(
+my $term = AnyEvent::ReadLine::Gnu->new(
 	prompt	=> "rigel> ",
 	on_line	=> \&processCmd
 );
@@ -129,29 +124,18 @@ $term = AnyEvent::ReadLine::Gnu->new(
 main();
 exit 0;
 
-sub main
+sub initCsi
 {
-	if (-r '/dev/ttyS0')
-	{
-		$lx2 = Rigel::LX200->new( port => '/dev/ttyS0', recv => \&lxCommand );
-		if ($lx2) {
-			$term->print("lx200 client listening on /dev/ttyS0\n");
-		}
-	}
-	# create our web server
-	$httpd = AnyEvent::HTTPD->new(
-		host => '::',
-		port => 9090,
-		request_timeout => 5
-	);
-	$httpd->reg_cb(
-		error => sub {
-			my($e) = @_;
-			$term->print("httpd error: $e\n");
-		},
-		request => \&webRequest
-	);
-	$term->print("web server on port 9090\n");
+	$term->hide();
+
+	# open usb ports and autodetect whats plugged in
+	$cfg->findPorts();
+
+	$dome->connect($cfg->get('dome', 'TTY'));
+
+	print "Looking for camera...\n";
+	$camera = new Camera();
+	print($camera->getInfo(), "\n");
 
 	# if csimcd is already running, lets kill it and start
 	# over fresh.  Return true if fake.pl is running
@@ -161,8 +145,8 @@ sub main
 	my $tmp = $cfg->get('csimc', 'TTY');
 	if ($tmp || $testing)
 	{
-		$term->print("connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n");
-		$term->print("loading csimc scripts...\n");
+		print("connecting to ",$cfg->get('csimc', 'HOST'),':', $cfg->get('csimc', 'PORT'), "\n");
+		print("loading csimc scripts...\n");
 		# -r reboot, -l load scripts.
 		# should start csimcd and load the *.cmc scripts.
 		# wont return untill everything is ready
@@ -210,8 +194,39 @@ sub main
 			}
 		);
 	}
+	$term->show();
+}
 
-	$dome = Dome->new(port => $cfg->get('dome', 'TTY'));
+
+sub main
+{
+	if (-r '/dev/ttyS0')
+	{
+		$lx2 = Rigel::LX200->new( port => '/dev/ttyS0', recv => \&lxCommand );
+		if ($lx2) {
+			$term->print("lx200 client listening on /dev/ttyS0\n");
+		}
+	}
+	# create our web server
+	$httpd = AnyEvent::HTTPD->new(
+		host => '::',
+		port => 9090,
+		request_timeout => 5
+	);
+	$httpd->reg_cb(
+		error => sub {
+			my($e) = @_;
+			$term->print("httpd error: $e\n");
+		},
+		request => \&webRequest
+	);
+	$term->print("web server on port 9090\n");
+
+	$dome = Dome->new();
+	if (isPowerOn())
+	{
+		initCsi();
+	}
 
 	my $t;
 	$t = AnyEvent->timer(
@@ -642,15 +657,42 @@ sub processCmd($cmd, $length)
 		}
 		when ('poweron')
 		{
-			my $p = $pi->pin(17);
-			$p->mode(OUTPUT);
-			$p->write(LOW);
+			if (isPowerOn())
+			{
+				print "power is already on\n";
+			}
+			else
+			{
+				print "wait 5 seconds for poweron...\n";
+				$p17->write(LOW);
+				# give things a sec to come up
+				sleep(5);
+				initCsi();
+			}
 		}
 		when ('poweroff')
 		{
-			my $p = $pi->pin(17);
-			$p->mode(OUTPUT);
-			$p->write(HIGH);
+			if (isPowerOn())
+			{
+				$ra->savePos();
+				$dec->savePos();
+				$focus->savePos();
+				$ra->disconnect();
+				$dec->disconnect();
+				$focus->disconnect();
+				$camera = 0;
+				$dome->disconnect();
+				killCsimcd();
+				$cfg->clear();
+				$ra = 0;
+				$dec = 0;
+				$focus = 0;
+				$p17->write(HIGH);
+			}
+			else
+			{
+				print "power is already off\n";
+			}
 		}
 		default
 		{
@@ -660,21 +702,11 @@ sub processCmd($cmd, $length)
 	$term->show;
 }
 
-sub monitorRa()
+sub isPowerOn()
 {
-	state $timer = 0;
-
-	exit if ($timer);  # its already monitoring
-
-	$timer = AnyEvent->timer(
-		after => 1,
-		interval => 1,
-		cb => sub {
-
-		}
-	);
-
+	return $p17->read() == LOW;
 }
+
 
 sub moveMount($dir, $amount)
 {
@@ -685,22 +717,18 @@ sub moveMount($dir, $amount)
 		when ('east')
 		{
 			$ra->etpos_offset($ex);
-			monitorRa();
 		}
 		when ('west')
 		{
 			$ra->etpos_offset(-$ex);
-			monitorRa();
 		}
 		when ('up')
 		{
 			$dec->etpos_offset($ex);
-			monitorDec();
 		}
 		when ('down')
 		{
 			$dec->etpos_offset(-$ex);
-			monitorDec();
 		}
 	}
 }
