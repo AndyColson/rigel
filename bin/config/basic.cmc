@@ -50,16 +50,16 @@ define monitor()
 	pause(500);  // let it get going
 	while(working)
 	{
-		$1=evel;
-		printf("%d,%d,%d,%d\n", mpos, mvel, epos, $1);
-		if (working && (0 == $1))
+		//$1=evel;
+		printf("%d,%d,%d,%d\n", mpos, mvel, epos, evel);
+		/*if (working && (0 == $1))
 		{
 			// we didnt move!
 			stop();
 			printf("error: we got stuck\n");
 			return;
-		}
-		pause(500);  // half a second, I hope
+		}*/
+		pause(700);
 	}
 	printf("done: %d,%d,%d,%d\n", mpos, mvel, epos, evel);
 }

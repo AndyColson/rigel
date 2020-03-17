@@ -853,9 +853,9 @@ sub focus($opt)
 			$term->print("Setting focus to: $opt\n");
 			$focus->mtpos($opt, sub {
 				$term->print($focus->{status}, "\r");
-				if ($focus->{status} =~ /done/)
+				if (! $focus->{working})
 				{
-					print "\n";
+					$term->print("\n");
 				}
 			});
 		}

@@ -199,7 +199,7 @@ void Camera::takePicture()
 
 	bool imageReady = false;
 	printf("starting exposure\n");
-	result = cam.StartExposure(0.25, true);
+	result = cam.StartExposure(20, true);
 	if (result != 0)
 	{
 		printf("StartExposure failed: %d\n", result);
@@ -208,7 +208,7 @@ void Camera::takePicture()
 	cam.get_ImageReady(&imageReady);
 	while(!imageReady)
 	{
-		usleep(100);
+		usleep(500);
 		cam.get_ImageReady(&imageReady);
 	}
 	printf("done exposure\n");

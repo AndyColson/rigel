@@ -78,7 +78,7 @@ sub monitor($self, $line, $cb=undef)
 		my $evel = $4;
 
 		my $distance = sqrt( ($mpos - $self->{mtpos})**2 );
-		$self->{pct} = 1-($distance / $self->{tldist});
+		$self->{pct} = 1-($distance / $self->{ttldist});
 		$self->{status} = sprintf("pct done: %.1f", $self->{pct});
 		# schedule another read
 		$self->{handle}->push_read(
