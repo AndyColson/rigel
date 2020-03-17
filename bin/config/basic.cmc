@@ -23,6 +23,18 @@ define report()
 			!!(ilevel & plimbit), !!(ilevel & nlimbit), !!(ilevel & homebit));
 }
 
+define st()
+{
+	printf("mpos=%d m/evel=(%d/%d) epos=%d etrig=%d lhome:%d, ehome:%d\n",
+	  mpos, mvel, evel, epos, etrig, !!(ilevel & homebit), !!(iedge & homebit) );
+	while (working)
+	{
+		printf("mpos=%d m/evel=(%d/%d) epos=%d etrig=%d lhome:%d, ehome:%d\n",
+		  mpos, mvel, evel, epos, etrig, !!(ilevel & homebit), !!(iedge & homebit) );
+		pause(500);
+	}
+}
+
 /* synchronous operation */
 define sync()
 {
@@ -38,16 +50,16 @@ define monitor()
 	pause(500);  // let it get going
 	while(working)
 	{
-		printf("%8d,%8d,%8d,%8d\n", mpos, mvel, epos, evel);
-		if (working && (0 == evel))
+		$1=evel;
+		printf("%d,%d,%d,%d\n", mpos, mvel, epos, $1);
+		if (working && (0 == $1))
 		{
 			// we didnt move!
-			mtpos = mpos;			// stop trying
+			stop();
 			printf("error: we got stuck\n");
-			sync();
 			return;
 		}
 		pause(500);  // half a second, I hope
 	}
-	printf("done: %8d,%8d,%8d,%8d\n", mpos, mvel, epos, evel);
+	printf("done: %d,%d,%d,%d\n", mpos, mvel, epos, evel);
 }

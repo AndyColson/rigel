@@ -8,7 +8,6 @@ olevel=(1<<0);
 // Damping factor
 kv     = 2000;
 
-// these are just until telescoped starts
 maxvel = 150000;
 maxacc = 150000;
 limacc = 500000;

@@ -79,6 +79,7 @@ sub monitor($self, $line, $cb=undef)
 
 		my $distance = sqrt( ($mpos - $self->{mtpos})**2 );
 		$self->{pct} = 1-($distance / $self->{tldist});
+		$self->{status} = sprintf("pct done: %.1f", $self->{pct});
 		# schedule another read
 		$self->{handle}->push_read(
 			line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
@@ -150,10 +151,29 @@ sub stop($self)
 sub etvel($self, $value, $cb=undef)
 {
 	$self->{handle}->push_write("etvel=$value;\n");
+	# cant monitor cuz cmc "working" doesnt work for velocity
+	#$self->{handle}->push_read(
+	#	line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
+	#);
+	#$self->{handle}->push_write("monitor();\n");
+}
+
+sub mtpos($self, $value, $cb)
+{
 	$self->{handle}->push_read(
 		line => sub($handle, $line, $eol) {$self->monitor($line, $cb);}
 	);
-	$self->{handle}->push_write("monitor();\n");
+	$self->{handle}->push_write("mtpos=$value;monitor();\n");
+}
+sub mpos($self, $cb)
+{
+	$self->{handle}->push_read(
+		line => sub($handle, $line, $eol)
+		{
+			$cb->($line);
+		}
+	);
+	$self->{handle}->push_write("=mpos;\n");
 }
 
 sub epos($self, $cb)
@@ -188,7 +208,7 @@ sub savePos($self, $cb)
 	$self->{handle}->push_read(
 		line => sub($handle, $line, $eol)
 		{
-			print "SavePos: [$line]\n";
+			#print "SavePos: [$line]\n";
 			$self->{cfg}->set(
 				'epos',
 				$self->{hwaddr},

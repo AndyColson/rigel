@@ -149,7 +149,7 @@ sub initCsi
 		# -r reboot, -l load scripts.
 		# should start csimcd and load the *.cmc scripts.
 		# wont return untill everything is ready
-		system('./csimc -rl < /dev/null');
+		system('./csimc -l < /dev/null');
 
 		# each control (ra, dec, focus) gets its own connection
 		$ra = Csi->new(
@@ -225,6 +225,10 @@ sub main
 	if (isPowerOn())
 	{
 		initCsi();
+	}
+	else
+	{
+		$term->print("power is off\n");
 	}
 
 	my $t;
@@ -654,57 +658,21 @@ sub processCmd($cmd, $length)
 			$term->print("no report yet\n");
 			#$ra->push_write("stats();\n");
 		}
+		when ('picture')
+		{
+			takePicture();
+		}
 		when ('poweron')
 		{
-			if (isPowerOn())
-			{
-				print "power is already on\n";
-			}
-			else
-			{
-				print "wait 5 seconds for poweron...\n";
-				$p17->write(LOW);
-				# give things a sec to come up
-				sleep(5);
-				initCsi();
-			}
+			powerOn();
 		}
 		when ('poweroff')
 		{
-			if (isPowerOn())
-			{
-				my $wait = AnyEvent->condvar;
-				$wait->begin(sub{
-					$ra->disconnect();
-					$dec->disconnect();
-					$focus->disconnect();
-					killCsimcd();
-					$cfg->clear();
-					$ra = 0;
-					$dec = 0;
-					$focus = 0;
-					$p17->write(HIGH);
-					print "power off\n";
-				});
-				print "saving...\n";
-
-				$wait->begin();
-				$ra->savePos( sub{$wait->end;} );
-
-				$wait->begin();
-				$dec->savePos( sub{$wait->end;} );
-
-				$wait->begin();
-				$focus->savePos( sub{$wait->end;} );
-
-				$camera = 0;
-				$dome->disconnect();
-				$wait->end;
-			}
-			else
-			{
-				print "power is already off\n";
-			}
+			powerOff();
+		}
+		when (/^focus\*(\d+)?/)
+		{
+			focus($1);
 		}
 		default
 		{
@@ -712,6 +680,59 @@ sub processCmd($cmd, $length)
 		}
 	}
 	$term->show;
+}
+
+sub powerOff()
+{
+	if (isPowerOn())
+	{
+		my $wait = AnyEvent->condvar;
+		$wait->begin(sub{
+			$ra->disconnect();
+			$dec->disconnect();
+			$focus->disconnect();
+			killCsimcd();
+			$cfg->clear();
+			$ra = 0;
+			$dec = 0;
+			$focus = 0;
+			$p17->write(HIGH);
+			$term->print("power off\n");
+		});
+
+		$wait->begin();
+		$ra->savePos( sub{$wait->end;} );
+
+		$wait->begin();
+		$dec->savePos( sub{$wait->end;} );
+
+		$wait->begin();
+		$focus->savePos( sub{$wait->end;} );
+
+		$camera = 0;
+		$dome->disconnect();
+		$wait->end;
+	}
+	else
+	{
+		print "power is already off\n";
+	}
+}
+
+sub powerOn()
+{
+	if (isPowerOn())
+	{
+		print "power is already on\n";
+	}
+	else
+	{
+		print "wait 5 seconds for poweron...\n";
+		$p17->write(LOW);
+		# give things a sec to come up
+		sleep(5);
+		initCsi();
+	}
 }
 
 sub isPowerOn()
@@ -788,6 +809,8 @@ go east x
 go west x
 poweron
 poweroff
+picture
+focus [x] (0-25436)
 
 EOS
 }
@@ -814,6 +837,29 @@ sub initHome()
 {
 	#$ra->push_write("findhome(1);\n");
 	#$dec->push_write("findhome(1);\n");
+}
+
+sub takePicture()
+{
+	$camera->takePicture();
+}
+
+sub focus($opt)
+{
+	$focus->mpos( sub($val) {
+		$term->print("focus mpos: [$val]\n");
+		if ($opt)
+		{
+			$term->print("Setting focus to: $opt\n");
+			$focus->mtpos($opt, sub {
+				$term->print($focus->{status}, "\r");
+				if ($focus->{status} =~ /done/)
+				{
+					print "\n";
+				}
+			});
+		}
+	});
 }
 
 
