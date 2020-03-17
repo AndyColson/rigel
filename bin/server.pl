@@ -670,7 +670,7 @@ sub processCmd($cmd, $length)
 		{
 			powerOff();
 		}
-		when (/^focus\*(\d+)?/)
+		when (/^focus\s*(\d+)?/)
 		{
 			focus($1);
 		}
