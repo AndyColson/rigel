@@ -4,19 +4,36 @@
 # -ffast-math
 # -D_POSIX_C_SOURCE -D_XOPEN_SOURCE
 CFLAGS = -O2 -fPIC -Wall -std=c11 -D_DEFAULT_SOURCE
+export CFLAGS
 
-all: ../bin/csimc ../bin/csimcd ../bin/libsqlitefunctions.so
+liblist = ../bin/libastro.so ../bin/libmisc.so ../bin/libfits.so ../bin/libwcs.so
+all: $(liblist) ../bin/csimc ../bin/csimcd ../bin/libsqlitefunctions.so ../bin/telescoped
 
 clean:
-	@rm csimc/*.o ../bin/csimc ../bin/csimcd ../bin/libsqlitefunctions.so
+	@rm -f ../bin/telescoped ../bin/csimc ../bin/csimcd ../bin/libsqlitefunctions.so $(liblist)
+	@rm -f csimc/*.o libastro/*.o libmisc/*.o libfits/*.o libwcs/*.o telescoped.csi/*.o
 
 ../bin/libsqlitefunctions.so: extension-functions.c
 	gcc -fPIC -lm -shared extension-functions.c -o ../bin/libsqlitefunctions.so
 
-../bin/csimc: csimc/csimc.o csimc/boot.o csimc/eintrio.o csimc/el.o csimc/csiutil.o  csimc/strops.o csimc/configfile.o csimc/telenv.o
-	$(CC) $(CFLAGS) -o $@ $^ -lm -lsqlite3
+../bin/csimc: csimc/csimc.c csimc/boot.c csimc/eintrio.c csimc/el.c
+	$(CC) $(CFLAGS) -Wpointer-to-int-cast -o $@ $^ -lm -Ilibmisc -L../bin -lmisc -lfits -lastro
 
+../bin/csimcd: csimc/csimcd.c
+	$(CC) $(CFLAGS) -Wpointer-to-int-cast -o $@ $^ -lm -Ilibmisc -L../bin -lmisc -lastro -lfits
 
-../bin/csimcd: csimc/csimcd.o csimc/telenv.o csimc/strops.o csimc/configfile.o csimc/csiutil.o
-	$(CC) $(CFLAGS) -o $@ $^ -lm -lsqlite3
+../bin/libastro.so:
+	$(MAKE) -C libastro
+
+../bin/libmisc.so:
+	$(MAKE) -C libmisc
+
+../bin/libfits.so:
+	$(MAKE) -C libfits
+
+../bin/libwcs.so:
+	$(MAKE) -C libwcs
+
+../bin/telescoped:
+	$(MAKE) -C telescoped.csi
 

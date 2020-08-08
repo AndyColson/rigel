@@ -14,7 +14,6 @@
 #include <libgen.h>
 
 #include "strops.h"
-#include "telenv.h"
 #include "csiutil.h"
 #include "configfile.h"
 
@@ -22,8 +21,8 @@
 #include "mc.h"
 
 #define CMCHAR      '!'     /* char to denote command mode */
-#define DWT             40          /* secs to wait for daemon to start */
-#define DEFBAUD     1200        /* default serial port baud rate */
+#define DWT         40      /* secs to wait for daemon to start */
+#define DEFBAUD     1200    /* default serial port baud rate */
 
 int verbose;                /* verbose flag */
 
@@ -60,7 +59,7 @@ static int rflag;           /* reboot all nodes on network */
 static int el;              /* set if using edit line */
 static char targs[32];          /* string to collect tflag args */
 
-static char cfg_def[] = "csimc"; /* default config file */
+static char cfg_def[] = "config/csimc.cfg"; /* default config file */
 static char *cfg_fn = cfg_def;      /* actual config file */
 static char ipme[] = "127.0.0.1";   /* local host IP */
 char *host = ipme;          /* actual server host */
@@ -77,9 +76,9 @@ int
 main (int ac, char *av[])
 {
 	// set cwd to program dir.
-	// config.sqlite and csimcd are found in same spot
-	char * tmp = strdup(av[0]);
-	char * tmp2 = dirname(tmp);
+	// config and csimcd are found in same spot
+	char *tmp = strdup(av[0]);
+	char *tmp2 = dirname(tmp);
 	chdir(tmp2);
 	free(tmp);
 

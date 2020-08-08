@@ -26,7 +26,6 @@ HTTP::XSCookies
 Text::CSV_XS
 Astro::PAL
 Astro::Coords
-Astro::FITS::CFITSIO
 Udev::FFI
 Net::Curl
 Inline::C
@@ -39,7 +38,9 @@ PDL
 # OpenGL ??
 # Starlink::AST (used?)
 
+CPAN::Shell->install('Astro::FITS::CFITSIO');
 CPAN::Shell->o('conf', 'recommends_policy', '0');
+CPAN::Shell->install('Starlink::AST');
 CPAN::Shell->install('Astro::FITS::Header');
 CPAN::Shell->o('conf', 'recommends_policy', '1');
 for my $x (@list)

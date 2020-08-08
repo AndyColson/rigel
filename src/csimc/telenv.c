@@ -19,33 +19,36 @@
 
 //static void getTELHOME(void);
 
-/* just like fopen() except tries name literally first then prepended
- * with $TELHOME (or default if not defined), unless starts with /.
+/* just like fopen()
  */
-/*
+
 FILE *
 telfopen (char *name, char *how)
 {
     FILE *fp;
 
-    if (!(fp = fopen (name, how)) && name[0] != '/')
+	syslog(LOG_INFO, "telfopen(%s)", name);
+
+	fp = fopen (name, how);
+	return fp;
+
+    /*if (!(fp = fopen (name, how)) && name[0] != '/')
     {
         char envname[1024];
         telfixpath (envname, name);
         fp = fopen (envname, how);
     }
-    return (fp);
+    return (fp);*/
 }
-*/
 
-/* just like fopen() except tries name literally first then prepended
- * with $TELHOME (or default if not defined), unless starts with /.
+
+/* just like fopen()
  */
-/*
+
 int
 telopen (char *name, int flags, ...)
 {
-    char envname[1024];
+    //char envname[1024];
     int ret;
 
     if (flags & O_CREAT)
@@ -57,53 +60,58 @@ telopen (char *name, int flags, ...)
         mode = va_arg (ap, int);
         va_end (ap);
         ret = open (name, flags, mode);
+		/*
         if (ret < 0 && name[0] != '/')
         {
             telfixpath (envname, name);
             ret = open (envname, flags, mode);
         }
+		*/
     }
     else
     {
         ret = open (name, flags);
+		/*
         if (ret < 0 && name[0] != '/')
         {
             telfixpath (envname, name);
             ret = open (envname, flags);
         }
+		*/
     }
 
     return (ret);
 }
-*/
+
 
 /* convert the old path to the new path, allowing for TELHOME.
  * this is for cases when a pathname is used for other than open, such as
  * opendir, unlink, mknod, etc etc.
  * it is ok for caller to use the same buffer for each.
  */
-/*
+
 void
 telfixpath (char *newp, char *old)
 {
-    char tmp[1024];
-
-    getTELHOME();
+    //char tmp[1024];
+	strcpy (newp, old);
+    /*
+	 * getTELHOME();
     if (telhome && old[0] != '/')
         (void) sprintf (tmp, "%s/%s", telhome, old);
     else
         (void) strcpy (tmp, old);
     (void) strcpy (newp, tmp);
+	*/
 }
-*/
+
 /* use syslog, like a good daemon
  * return 0
  */
 int
-telOELog()
+telOELog(const char *appName)
 {
-
-	openlog("csimcd", LOG_PID, LOG_DAEMON);
+	openlog(appName, LOG_PID, LOG_DAEMON);
 	syslog(LOG_INFO, "Program startup");
 
 	char cwd[1024];
@@ -119,7 +127,8 @@ telOELog()
 /* return a pointer to a static string of the form YYYYMMDDHHMMSS
  * based on the given UTC time_t value.
  */
-/*char *
+/*
+char *
 timestamp(time_t t)
 {
     static char str[15];

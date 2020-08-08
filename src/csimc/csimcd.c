@@ -115,9 +115,8 @@ static CInfo *CFD2CIP(int fd);
 static char tty_def[30] = "/dev/ttyS0"; /* default tty onto network */
 static char *tty = tty_def;     /* tty we actually use */
 static int port = CSIMCPORT;        /* default IP port */
-static char cfg_def[] = "csimc"; /* default config file */
+static char cfg_def[] = "config/csimc.cfg"; /* default config file */
 static char *cfg = cfg_def;     /* config file we actually use */
-// static char *me = "csimcd";
 
 static fd_set clset;        /* each client fd. host addr = fd + MAXNA */
 static int maxclset = -1;   /* largest fd set in clset, -1 if empty */
@@ -151,8 +150,8 @@ main (int ac, char *av[])
 {
 	// our config.sqlite is in the same directory
 	// make the app dir our cwd, so we can find it easy
-	char * tmp = strdup(av[0]);
-	char * tmp2 = dirname(tmp);
+	char *tmp = strdup(av[0]);
+	char *tmp2 = dirname(tmp);
 	chdir(tmp2);
 	free(tmp);
 
@@ -184,7 +183,7 @@ main (int ac, char *av[])
 	}
 
 	/* open syslog */
-	telOELog();
+	telOELog("csimcd");
 
 	/* a few signal issues */
 	signal (SIGPIPE, SIG_IGN);
