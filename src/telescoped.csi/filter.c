@@ -444,7 +444,7 @@ filter_set(int first, ...)
     if (first)
     {
 #endif
-        char newf;
+        char newf = 0;
         va_list ap;
         FilterInfo *fip;
         double goal;
