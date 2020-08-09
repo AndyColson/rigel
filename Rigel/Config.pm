@@ -2,7 +2,6 @@ package Rigel::Config;
 
 use common::sense;
 use feature 'signatures';
-use DBI;
 use Device::SerialPort;
 use Udev::FFI;
 use Time::HiRes 'sleep';
@@ -10,17 +9,12 @@ use Time::HiRes 'sleep';
 # This unit is not just config stuff, it will also
 # probe ports to try and find what thing is plugged
 # into what port.
-# There isnt really any need for a human to edit the
-# config, so its stored in a config.sqlite db.
-# The csimcd program will read from that same config.
 
 
 sub new($class)
 {
-	die "config.sqlite not found" unless (-e 'config.sqlite');
 	my $self = {
 		modified => 0,
-		db => DBI->connect('dbi:SQLite:dbname=config.sqlite')
 	};
 	bless($self, $class);
 
@@ -41,20 +35,65 @@ sub new($class)
 
 sub set($self, $app, $key, $value)
 {
-	#my $q = $self->{db}->prepare_cached('update config set value = $1 where app = $2 and key = $3');
-	my $q = $self->{db}->prepare_cached('replace into config(app,key,value) values($1, $2, $3)');
-	$q->execute($app, $key, $value);
-	$q->finish;
+	my $found = 0;
+	my @lines;
+	my $fname = "config/$app.cfg";
+	if (open(my $f, '<', $fname))
+	{
+		@lines = <$f>;
+		close($f);
+
+		foreach my $line (@lines)
+		{
+			# just match key part
+			if ($line =~ /^\s*$key(?:=|\s)/ )
+			{
+				#print "SetFound [$key] \n";
+				$line = "$key = $value\n";
+				$found = 1;
+				last;
+			}
+		}
+	}
+
+	if (! $found)
+	{
+		push(@lines, "$key = $value\n");
+	}
+	if (open(my $f, '>', $fname))
+	{
+		print $f @lines;
+		close($f);
+	}
+
 }
 
 sub get($self, $app, $key)
 {
-	my($q, $value);
-	$q = $self->{db}->prepare_cached('select value from config where app = $1 and key = $2');
-	$q->execute($app, $key);
-	($value) = $q->fetchrow_array;
-	$q->finish;
-	return $value;
+	if (open(my $f, '<', "config/$app.cfg"))
+	{
+		while (my $line = <$f>)
+		{
+			if ($line =~ /^\s*$key\s*(?:=|\s)\s*(.*)$/ )
+			{
+				my $val = $1;
+				# Remove inline comments.
+				$val =~ s/\s*\!.+$//g;
+				$val =~ s/\s*\#.+$//g;
+				# Remove quotes
+				$val =~ s|^\"(.*)\"$|$1|s;
+				$val =~ s|^\'(.*)\'$|$1|s;
+
+				return $val;
+			}
+		}
+	}
+	else
+	{
+		print "file not found: config/$app.cfg\n";
+	}
+
+	return undef;
 }
 
 sub clear($self)
