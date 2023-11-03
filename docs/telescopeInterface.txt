@@ -1,0 +1,124 @@
+* Telescope commands
+fifoMsg(Tel_Id, "Stow");
+fifoMsg (Tel_Id, "Alt:%.6f Az:%.6f", SERVICEALT, SERVICEAZ);
+fifoMsg (Tel_Id, "%s", buf); / buf is name of object to track
+fifoMsg (Tel_Id, "RA:%.6f Dec:%.6f Epoch:%g", ra, dec, ep);
+/* inform the Tel fifo to reread the config file */
+fifoMsg (Tel_Id, "%s", "Reset");
+fifoMsg (Tel_Id, "jN"); big jog
+fifoMsg (Tel_Id, "jS")
+fifoMsg (Tel_Id, "jE");
+fifoMsg (Tel_Id, "jW");
+fifoMsg (Tel_Id, "jn"); little jog
+fifoMsg (Tel_Id, "js");
+fifoMsg (Tel_Id, "je");
+fifoMsg (Tel_Id, "jw");
+fifoMsg(Tel_Id, "OpenCover");
+fifoMsg(Tel_Id, "CloseCover");          
+fifoMsg (Tel_Id, "j0"); / stop jog
+fifoMsg (Tel_Id, "home%.*s", naxcodes, axcodes);
+fifoMsg (hip->fid, "home");
+fifoMsg (Tel_Id, "Stop");
+fifoMsg (hip->fid, "limits");
+fifoMsg (Tel_Id, "limits%.*s", naxcodes, axcodes);
+limits
+stow
+Offset
+HA
+* Focus commands
+fifoMsg (Focus_Id, "j-");
+fifoMsg (Focus_Id, "j+");
+focus
+home 
+stop 
+limits
+auto
+
+* Shared memory structure
+typedef struct
+{
+
+    /* time info */
+    Now now;            /* current time and location info */
+    int dt;         /* update period, ms */
+
+    /* current position now .. what you'd really see centered in camera */
+    double CJ2kRA, CJ2kDec; /* J2000 astrometric RA/Dec, rads */
+    double CARA, CAHA, CADec;   /* EOD apparent RA/HA/Dec, rads */
+    double Calt, Caz;       /* alt, az, rads */
+    double CPA;         /* parallactic angle, rads, + when west */
+
+    /* desired position now .. N.B. iff TEL_HUNTING/SLEWING/TRACKING */
+    double DJ2kRA, DJ2kDec; /* J2000 astrometric RA/Dec, rads */
+    double DARA, DAHA, DADec;   /* EOD apparent RA/HA/Dec, rads */
+    double Dalt, Daz;       /* alt, az, rads */
+    double DPA;         /* parallactic angle, rads, + when west */
+
+    /* position offsets: add to real to form desired */
+    double mdha, mddec;     /* mesh corrections, rads */
+    double jdha, jddec;     /* jogging offsets, rads, IFF jogging_ison */
+
+    MotorInfo minfo[TEL_NM];    /* motor info */
+
+    /* scope alignment coefficients, all rads */
+    TelAxes tax;
+
+    /* various status indicators */
+    TelState telstate;      /* telescope state */
+    CCDTempStatus coolerstatus; /* one of CCDTempStatus values */
+    CamState camstate;      /* camera state */
+    int camtemp;        /* current ccd camera temperature, C */
+    int camtarg;        /* target ccd camera temperature */
+    char filter;        /* current filter, or < or > if moving */
+    int lights;         /* flat lights: -1 none; 0 off; > 0 intensity */
+    int autofocus : 1;      /* set when focus is tracking filter and temp */
+    int jogging_ison : 1;   /* currently jogged/jogging from target */
+    int autodome : 1;       /* set when dome is tracking scope */
+    double domeaz;      /* current dome az, rads +E of N */
+    double dometaz;     /* dome target azimuth, rads +E of N */
+    DomeState domestate;    /* dome state */
+    DShState shutterstate;  /* shutter state */
+
+    /* info about the current or next run. filled periodically by telrun */
+    Scan scan;
+
+    /* other weather stats */
+    WxStats wxs;
+
+} TelStatShm;
+
+
+Parse commands to telescope daemon
+        tel_poll();
+    else if (strncasecmp (msg, "reset", 5) == 0)
+        tel_reset(1);
+    else if (strncasecmp (msg, "home", 4) == 0)
+        tel_home(1, msg);
+    else if (strncasecmp (msg, "limits", 6) == 0)
+        tel_limits(1, msg);
+    else if (strncasecmp (msg, "stow", 4) == 0)
+        tel_stow(1, msg);
+    else if (strncasecmp (msg, "OpenCover", 9) == 0)
+        tel_cover(1, "O");
+    else if (strncasecmp (msg, "CloseCover", 10) == 0)
+        tel_cover(1, "C");
+    else if (sscanf (msg, "RA:%lf Dec:%lf Epoch:%lf", &a, &b, &c) == 3)
+        tel_radecep (1, a, b, c);
+    else if (sscanf (msg, "RA:%lf Dec:%lf", &a, &b) == 2)
+        tel_radeceod (1, a, b);
+    else if (dbformat (msg, &o, &a, &b) == 0)
+        tel_op (1, &o, a, b);
+    else if (sscanf (msg, "Alt:%lf Az:%lf", &a, &b) == 2)
+        tel_altaz (1, a, b);
+    else if (sscanf (msg, "HA:%lf Dec:%lf", &a, &b) == 2)
+        tel_hadec (1, a, b);
+    else if ((jogargs = sscanf (msg, "j%7[NSEWnsew0] %d", jog_dir, &vel)) == 2)
+        tel_jog (1, jog_dir, vel); // Variable-velocity jog, KMI 8/19/05
+    // Vel ranges from 0 to VEL_MAX, indicating some fraction of the
+    // max velocity for a particular axis
+    else if (jogargs == 1)
+        tel_jog (1, jog_dir, VEL_MAX); // Slow/fast jog
+    else if (sscanf (msg, "Offset %lf,%lf", &a, &b) == 2)
+        offsetTracking (1, a, b);
+    else
+        tel_stop(1);
